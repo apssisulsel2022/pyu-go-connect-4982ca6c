@@ -1,113 +1,65 @@
 
 
-# Ride Service Types + Hotel Booking Feature
+# Enhanced Shuttle Booking: Payment + QR Ticket Download
 
-## Part 1: Ride Service Types (Bike, Bike Women, Cars)
+## What Exists
+The shuttle booking flow already works: browse routes → select schedule → choose seat count → enter name/phone → confirm booking (inserts into `shuttle_bookings`). No login required.
 
-### Flow
-Pick-up → Drop-off → **Service selection step** (new) → Fare calculation → Request ride
+## What to Add
 
-### Database Changes
+### 1. Payment Step
+Insert a **payment step** between guest info and confirmation. Two options:
+- **Cash** — mark booking as confirmed immediately (default)
+- **Wallet** — if user is logged in and has balance, deduct from wallet via `process_wallet_transaction` DB function
+- **Midtrans/Xendit** — call `create-topup` style flow for direct shuttle payment (guest can pay without account)
 
-1. **Add `service_type` column to `rides` table**
-   - New enum `ride_service_type`: `bike`, `bike_women`, `car`
-   - Default: `car`
+New flow: Routes → Schedule → Seats → Guest Info → **Payment** → Confirmation
 
-2. **No new tables needed** — service type is a property of each ride
+### 2. Database Changes (Migration)
+- Add `payment_method` column to `shuttle_bookings` (text, nullable, values: `cash`, `wallet`, `midtrans`, `xendit`)
+- Add `payment_status` column (text, default `unpaid`, values: `unpaid`, `paid`, `pending`)
+- Update `shuttle_bookings` RLS: keep existing "anyone can insert" policy
 
-### Fare Calculation Update (`calculate-fare` edge function)
-- Accept `service_type` parameter
-- Different pricing per service:
-  - **Bike**: Base Rp 5,000 + Rp 1,800/km (cheapest)
-  - **Bike Women**: Base Rp 5,500 + Rp 2,000/km (women-only drivers)
-  - **Car**: Base Rp 7,000 + Rp 2,500/km (current pricing)
+### 3. QR Code Ticket with Download
+- Install `qrcode.react` library for QR generation
+- Create `src/components/shuttle/ShuttleTicket.tsx` — a printable ticket component containing:
+  - PYU GO branding header
+  - QR code encoding the `booking_ref`
+  - Route name, departure time, seat count
+  - Passenger name, phone
+  - Total fare, payment status
+- Add "Download Ticket" button on confirmation step
+- Use `html2canvas` to capture the ticket as an image and trigger download as PNG
 
-### Frontend Changes
+### 4. Updated Shuttle.tsx Flow
+Add new step `"payment"` between `"guest_info"` and `"confirmation"`:
+- Payment selection cards (Cash, Online Payment)
+- For online: invoke edge function, handle redirect/popup
+- For cash: proceed directly to confirmation
+- On confirmation screen: show QR ticket + download button
 
-1. **`rideStore.ts`** — Add `serviceType` state (`bike | bike_women | car`)
+### 5. New Edge Function: `create-shuttle-payment`
+- Accepts `booking_id`, `amount`, `gateway`
+- Creates Midtrans Snap token or Xendit Invoice for shuttle fare
+- Returns payment token/URL
+- Webhook (`payment-webhook`) updated to handle shuttle payment callbacks (update `shuttle_bookings.payment_status`)
 
-2. **`Ride.tsx`** — New flow:
-   - After both pickup + dropoff are set, show **service selection panel** (not fare yet)
-   - Service cards with icons (motorcycle icon for Bike/Bike Women, car icon for Cars), name, and estimated price
-   - Selecting a service triggers fare calculation with `service_type` param
-   - Then shows the existing confirmation panel
+### 6. Admin Dashboard Update
+- Update `AdminShuttles.tsx` to show payment status column
+- Add filter by payment status
 
-3. **New component `src/components/ride/ServiceSelector.tsx`**
-   - Three cards: Bike (motorcycle icon, green), Bike Women (motorcycle + shield icon, pink), Cars (car icon, blue)
-   - Each shows estimated fare range
-   - Tapping one selects and proceeds to confirmation
-
-### Admin Integration
-- `AdminRides.tsx` — Show service type column in the rides table
-- Filter rides by service type
-
----
-
-## Part 2: Hotel Booking Feature (Traveloka-style)
-
-### Database Tables (new migration)
-
-1. **`hotels`** — Hotel listings
-   - `id`, `name`, `description`, `address`, `city`, `lat`, `lng`, `rating` (numeric), `star_rating` (int 1-5), `image_url`, `amenities` (text[]), `active` (boolean), `created_at`, `updated_at`
-   - RLS: public read, admin write
-
-2. **`hotel_rooms`** — Room types per hotel
-   - `id`, `hotel_id` (references hotels), `name` (e.g. "Deluxe", "Superior"), `description`, `price_per_night` (numeric), `max_guests` (int), `image_url`, `amenities` (text[]), `total_rooms` (int), `available_rooms` (int), `active`, `created_at`, `updated_at`
-   - RLS: public read, admin write
-
-3. **`hotel_bookings`** — User bookings
-   - `id`, `user_id` (uuid), `hotel_id`, `room_id`, `check_in` (date), `check_out` (date), `guests` (int), `total_price` (numeric), `status` (enum: `pending`, `confirmed`, `cancelled`, `completed`), `booking_ref` (text, auto-generated), `guest_name`, `guest_phone`, `special_requests` (text), `created_at`, `updated_at`
-   - RLS: users can view/create own bookings, admins can manage all
-
-### Frontend Pages
-
-1. **`src/pages/Hotel.tsx`** — Hotel listing page (Traveloka-style)
-   - Search bar with city/destination, check-in/out date pickers, guest count
-   - Hotel cards: image, name, star rating, price from, location
-   - Sort by price/rating
-   - Filter by star rating, price range
-
-2. **`src/pages/HotelDetail.tsx`** — Hotel detail page
-   - Hero image, hotel info, amenities chips
-   - Room list: room cards with photo, name, price, max guests, book button
-   - Map showing hotel location
-
-3. **`src/components/hotel/HotelSearchBar.tsx`** — Search/filter component
-4. **`src/components/hotel/HotelCard.tsx`** — Hotel list item card
-5. **`src/components/hotel/RoomCard.tsx`** — Room card with booking action
-6. **`src/components/hotel/BookingDialog.tsx`** — Booking confirmation modal (guest info, dates, pay via wallet)
-
-7. **`src/pages/HotelBookings.tsx`** — User's hotel booking history
-
-### Admin Dashboard Integration
-
-1. **`src/pages/admin/AdminHotels.tsx`** — Hotel & room management
-   - CRUD hotels (name, address, images, amenities, star rating)
-   - CRUD rooms per hotel (name, price, capacity)
-   - View all bookings with status management
-
-2. **Add "Hotels" nav item** to `AdminLayout.tsx` (Building icon)
-
-### Routing
-- `/hotel` — Hotel listing
-- `/hotel/:id` — Hotel detail
-- `/hotel/bookings` — User booking history
-- `/admin/hotels` — Admin hotel management
-
-### Home Page Update
-- Add "Hotel" service card on Index.tsx (Building icon, alongside Ride and Shuttle)
-
-### Bottom Nav Update
-- Add Hotel icon to bottom nav (between Shuttle and Wallet)
-
----
+## Technical Details
+- **Libraries to install**: `qrcode.react`, `html2canvas`
+- **New component**: `ShuttleTicket.tsx` (QR + booking details, styled for download)
+- **New edge function**: `create-shuttle-payment`
+- **Migration**: add `payment_method`, `payment_status` to `shuttle_bookings`
+- **Updated files**: `Shuttle.tsx` (add payment step + ticket download), `payment-webhook/index.ts` (handle shuttle payments), `AdminShuttles.tsx` (payment status display)
 
 ## Implementation Order
-
-1. Migration: add `ride_service_type` enum + column to `rides`, create hotel tables
-2. Update `calculate-fare` edge function with service type pricing
-3. Build ride service selector UI + update ride flow
-4. Build hotel listing, detail, and booking pages
-5. Build admin hotel management page
-6. Update navigation (bottom nav, admin sidebar, home page)
+1. Database migration (add payment columns)
+2. Create `create-shuttle-payment` edge function
+3. Update `payment-webhook` to handle shuttle bookings
+4. Build `ShuttleTicket.tsx` with QR code
+5. Update `Shuttle.tsx` with payment step + download ticket
+6. Update `AdminShuttles.tsx` with payment info
 
