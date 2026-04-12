@@ -695,6 +695,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          route_id: string | null
           updated_at: string
         }
         Insert: {
@@ -703,6 +704,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          route_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -711,9 +713,18 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          route_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "shuttle_rayons_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "shuttle_routes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shuttle_routes: {
         Row: {
