@@ -14,11 +14,13 @@ import { format, isSameDay } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import ShuttleTicket from "@/components/shuttle/ShuttleTicket";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Step = "routes" | "date" | "schedule" | "pickup" | "seats" | "guest_info" | "payment" | "confirmation";
 
 export default function Shuttle() {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<string>("booking");
   const [step, setStep] = useState<Step>("routes");
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -53,13 +55,35 @@ export default function Shuttle() {
   });
 
   const { data: rayons } = useQuery({
-    queryKey: ["shuttle-rayons"],
+    queryKey: ["shuttle-rayons", selectedRouteId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("shuttle_rayons").select("*").eq("active", true).order("name");
+      if (!selectedRouteId) return [];
+      const { data, error } = await supabase
+        .from("shuttle_rayons")
+        .select("*")
+        .eq("active", true)
+        .eq("route_id", selectedRouteId)
+        .order("name");
       if (error) throw error;
       const { data: points } = await supabase.from("shuttle_pickup_points").select("*").eq("active", true).order("stop_order");
       return data.map((r) => ({ ...r, pickup_points: (points ?? []).filter((p) => p.rayon_id === r.id) }));
     },
+    enabled: !!selectedRouteId,
+  });
+
+  const { data: userBookings, isLoading: historyLoading } = useQuery({
+    queryKey: ["user-shuttle-bookings", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("shuttle_bookings")
+        .select("*, shuttle_schedules!inner(departure_time, route_id, shuttle_routes:route_id(name, origin, destination)), shuttle_pickup_points(name)")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
   });
 
   const selectedRoute = routes?.find((r) => r.id === selectedRouteId);
@@ -216,237 +240,286 @@ export default function Shuttle() {
         <p className="text-primary-foreground/70 text-sm">Pesan kursi shuttle — tanpa perlu akun</p>
       </div>
 
-      <div className="px-4 mt-6 space-y-4">
-        {/* STEP 1: ROUTES */}
-        {step === "routes" && isLoading && (
-          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-        )}
-        {step === "routes" && !isLoading && (!routes || routes.length === 0) && (
-          <div className="text-center py-12 text-muted-foreground">
-            <Bus className="w-12 h-12 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">Belum ada rute shuttle tersedia</p>
-          </div>
-        )}
-        {step === "routes" && routes?.map((route) => (
-          <Card key={route.id} className="overflow-hidden cursor-pointer hover:border-primary transition-colors" onClick={() => handleSelectRoute(route.id)}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Bus className="w-5 h-5 text-secondary" />{route.name}
-              </CardTitle>
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <MapPin className="w-3 h-3" />{route.origin} → {route.destination}
-              </p>
-            </CardHeader>
-            <CardContent className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">{route.schedules.length} jadwal tersedia</span>
-              <span className="font-bold text-sm text-primary">Rp {route.base_fare.toLocaleString("id-ID")}/kursi</span>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="px-4 mt-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="booking">Pesan Tiket</TabsTrigger>
+            <TabsTrigger value="history">Riwayat Saya</TabsTrigger>
+          </TabsList>
 
-        {/* STEP 2: DATE */}
-        {step === "date" && (
-          <div className="space-y-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Pilih Tanggal</CardTitle>
-                <p className="text-xs text-muted-foreground">{selectedRoute?.name} • {selectedRoute?.origin} → {selectedRoute?.destination}</p>
-              </CardHeader>
-              <CardContent className="flex justify-center">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={handleSelectDate}
-                  disabled={(date) => {
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    return date < today;
-                  }}
-                  modifiers={{
-                    hasSchedule: availableDates,
-                  }}
-                  modifiersClassNames={{
-                    hasSchedule: "bg-primary/20 font-bold",
-                  }}
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </CardContent>
-            </Card>
-            <Button variant="outline" className="w-full" onClick={goBack}>Kembali</Button>
-          </div>
-        )}
-
-        {/* STEP 3: SCHEDULE */}
-        {step === "schedule" && (
-          <div className="space-y-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Pilih Jadwal</CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  {selectedRoute?.name} • {selectedDate && format(selectedDate, "dd MMMM yyyy", { locale: localeId })}
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {filteredSchedules.length === 0 && <p className="text-xs text-muted-foreground py-2">Tidak ada jadwal untuk tanggal ini</p>}
-                {filteredSchedules.map((s: any) => (
-                  <button key={s.id} disabled={s.available_seats === 0} onClick={() => handleSelectSchedule(s)}
-                    className="w-full flex items-center justify-between p-3 rounded-xl border border-border hover:bg-accent/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                    <div className="flex items-center gap-3">
-                      <Clock className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-semibold text-sm">{format(new Date(s.departure_time), "HH:mm")}</span>
-                      {s.arrival_time && (<><ArrowRight className="w-3 h-3 text-muted-foreground" /><span className="text-sm text-muted-foreground">{format(new Date(s.arrival_time), "HH:mm")}</span></>)}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs flex items-center gap-1 text-muted-foreground"><Users className="w-3 h-3" />{s.available_seats} kursi</span>
-                      <span className="font-bold text-sm text-primary">Rp {(selectedRoute?.base_fare ?? 0).toLocaleString("id-ID")}</span>
-                    </div>
-                  </button>
-                ))}
-              </CardContent>
-            </Card>
-            <Button variant="outline" className="w-full" onClick={goBack}>Kembali</Button>
-          </div>
-        )}
-
-        {/* PICKUP POINT SELECTION */}
-        {step === "pickup" && (
-          <div className="space-y-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Pilih Titik Jemput</CardTitle>
-                <p className="text-xs text-muted-foreground">{selectedRoute?.name} • {format(new Date(selectedScheduleDeparture), "dd MMM yyyy, HH:mm")}</p>
-              </CardHeader>
-            </Card>
-            {rayons?.map((rayon) => (
-              <Card key={rayon.id}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">{rayon.name}</CardTitle>
-                  {rayon.description && <p className="text-xs text-muted-foreground">{rayon.description}</p>}
+          <TabsContent value="booking" className="space-y-4">
+            {/* STEP 1: ROUTES */}
+            {step === "routes" && isLoading && (
+              <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+            )}
+            {step === "routes" && !isLoading && (!routes || routes.length === 0) && (
+              <div className="text-center py-12 text-muted-foreground">
+                <Bus className="w-12 h-12 mx-auto mb-3 opacity-40" />
+                <p className="text-sm">Belum ada rute shuttle tersedia</p>
+              </div>
+            )}
+            {step === "routes" && routes?.map((route) => (
+              <Card key={route.id} className="overflow-hidden cursor-pointer hover:border-primary transition-colors" onClick={() => handleSelectRoute(route.id)}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Bus className="w-5 h-5 text-secondary" />{route.name}
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />{route.origin} → {route.destination}
+                  </p>
                 </CardHeader>
-                <CardContent className="space-y-1">
-                  {rayon.pickup_points.map((p: any) => (
-                    <button key={p.id} onClick={() => handleSelectPickupPoint(rayon, p)}
-                      className="w-full flex items-center justify-between p-3 rounded-xl border border-border hover:bg-accent/50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-primary w-6">J{p.stop_order}</span>
-                        <div>
-                          <p className="text-sm font-medium text-left">{p.name}</p>
-                          <p className="text-xs text-muted-foreground">{p.departure_time ? `${p.departure_time} WIB` : ""} • {p.distance_meters}m</p>
-                        </div>
-                      </div>
-                      <span className="font-bold text-sm text-primary">Rp {Number(p.fare).toLocaleString("id-ID")}</span>
-                    </button>
-                  ))}
+                <CardContent className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{route.schedules.length} jadwal tersedia</span>
+                  <span className="font-bold text-sm text-primary">Rp {route.base_fare.toLocaleString("id-ID")}/kursi</span>
                 </CardContent>
               </Card>
             ))}
-            <Button variant="outline" className="w-full" onClick={goBack}>Kembali</Button>
-          </div>
-        )}
 
-        {/* SEATS */}
-        {step === "seats" && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Pilih Kursi</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                {selectedRoute?.name} • {format(new Date(selectedScheduleDeparture), "dd MMM yyyy, HH:mm")}
-                {selectedPickupPoint && ` • 📍 ${selectedPickupPoint.name}`}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Jumlah kursi</Label>
-                <div className="flex items-center gap-3">
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setSeatCount(Math.max(1, seatCount - 1))}>-</Button>
-                  <span className="font-bold w-6 text-center">{seatCount}</span>
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setSeatCount(Math.min(selectedScheduleSeats, seatCount + 1))}>+</Button>
-                </div>
+            {/* STEP 2: DATE */}
+            {step === "date" && (
+              <div className="space-y-3">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Pilih Tanggal</CardTitle>
+                    <p className="text-xs text-muted-foreground">{selectedRoute?.name} • {selectedRoute?.origin} → {selectedRoute?.destination}</p>
+                  </CardHeader>
+                  <CardContent className="flex justify-center">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={handleSelectDate}
+                      disabled={(date) => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        return date < today;
+                      }}
+                      modifiers={{
+                        hasSchedule: availableDates,
+                      }}
+                      modifiersClassNames={{
+                        hasSchedule: "bg-primary/20 font-bold",
+                      }}
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </CardContent>
+                </Card>
+                <Button variant="outline" className="w-full" onClick={goBack}>Kembali</Button>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Total</span>
-                <span className="font-extrabold text-lg">Rp {totalFare.toLocaleString("id-ID")}</span>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={goBack}>Kembali</Button>
-                <Button className="flex-1 gradient-primary text-primary-foreground font-bold" onClick={handleConfirmSeats}>Lanjut</Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
 
-        {/* GUEST INFO */}
-        {step === "guest_info" && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Info Penumpang</CardTitle>
-              <p className="text-xs text-muted-foreground">Tidak perlu akun</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="gn">Nama Lengkap</Label>
-                <Input id="gn" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Nama Anda" />
+            {/* STEP 3: SCHEDULE */}
+            {step === "schedule" && (
+              <div className="space-y-3">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Pilih Jadwal</CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedRoute?.name} • {selectedDate && format(selectedDate, "dd MMMM yyyy", { locale: localeId })}
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {filteredSchedules.length === 0 && <p className="text-xs text-muted-foreground py-2">Tidak ada jadwal untuk tanggal ini</p>}
+                    {filteredSchedules.map((s: any) => (
+                      <button key={s.id} disabled={s.available_seats === 0} onClick={() => handleSelectSchedule(s)}
+                        className="w-full flex items-center justify-between p-3 rounded-xl border border-border hover:bg-accent/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                        <div className="flex items-center gap-3">
+                          <Clock className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-semibold text-sm">{format(new Date(s.departure_time), "HH:mm")}</span>
+                          {s.arrival_time && (<><ArrowRight className="w-3 h-3 text-muted-foreground" /><span className="text-sm text-muted-foreground">{format(new Date(s.arrival_time), "HH:mm")}</span></>)}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs flex items-center gap-1 text-muted-foreground"><Users className="w-3 h-3" />{s.available_seats} kursi</span>
+                          <span className="font-bold text-sm text-primary">Rp {(selectedRoute?.base_fare ?? 0).toLocaleString("id-ID")}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </CardContent>
+                </Card>
+                <Button variant="outline" className="w-full" onClick={goBack}>Kembali</Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="gp">Nomor HP</Label>
-                <Input id="gp" type="tel" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder="+62 812..." />
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={goBack}>Kembali</Button>
-                <Button className="flex-1 gradient-primary text-primary-foreground font-bold" onClick={handleGuestInfoNext}>Lanjut ke Pembayaran</Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
 
-        {/* PAYMENT */}
-        {step === "payment" && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Pembayaran</CardTitle>
-              <p className="text-xs text-muted-foreground">{selectedRoute?.name} • {seatCount} kursi • Rp {totalFare.toLocaleString("id-ID")}</p>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <button onClick={handlePayCash} disabled={booking || processingPayment}
-                className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary transition-colors">
-                <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center"><Banknote className="w-6 h-6 text-primary" /></div>
-                <div className="text-left"><p className="font-bold text-sm">Bayar Tunai</p><p className="text-xs text-muted-foreground">Bayar langsung saat naik</p></div>
-              </button>
-              <button onClick={() => handlePayOnline("midtrans")} disabled={booking || processingPayment}
-                className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary transition-colors">
-                <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center"><CreditCard className="w-6 h-6 text-secondary" /></div>
-                <div className="text-left"><p className="font-bold text-sm">Midtrans</p><p className="text-xs text-muted-foreground">GoPay, VA, Kartu Kredit</p></div>
-              </button>
-              <button onClick={() => handlePayOnline("xendit")} disabled={booking || processingPayment}
-                className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary transition-colors">
-                <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center"><CreditCard className="w-6 h-6 text-secondary" /></div>
-                <div className="text-left"><p className="font-bold text-sm">Xendit</p><p className="text-xs text-muted-foreground">OVO, DANA, Transfer Bank</p></div>
-              </button>
-              {(booking || processingPayment) && <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}
-              <Button variant="outline" className="w-full" onClick={goBack}>Kembali</Button>
-            </CardContent>
-          </Card>
-        )}
+            {/* PICKUP POINT SELECTION */}
+            {step === "pickup" && (
+              <div className="space-y-3">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Pilih Titik Jemput</CardTitle>
+                    <p className="text-xs text-muted-foreground">{selectedRoute?.name} • {format(new Date(selectedScheduleDeparture), "dd MMM yyyy, HH:mm")}</p>
+                  </CardHeader>
+                </Card>
+                {rayons?.map((rayon) => (
+                  <Card key={rayon.id}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">{rayon.name}</CardTitle>
+                      {rayon.description && <p className="text-xs text-muted-foreground">{rayon.description}</p>}
+                    </CardHeader>
+                    <CardContent className="space-y-1">
+                      {rayon.pickup_points.map((p: any) => (
+                        <button key={p.id} onClick={() => handleSelectPickupPoint(rayon, p)}
+                          className="w-full flex items-center justify-between p-3 rounded-xl border border-border hover:bg-accent/50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-bold text-primary w-6">J{p.stop_order}</span>
+                            <div>
+                              <p className="text-sm font-medium text-left">{p.name}</p>
+                              <p className="text-xs text-muted-foreground">{p.departure_time ? `${p.departure_time} WIB` : ""} • {p.distance_meters}m</p>
+                            </div>
+                          </div>
+                          <span className="font-bold text-sm text-primary">Rp {Number(p.fare).toLocaleString("id-ID")}</span>
+                        </button>
+                      ))}
+                    </CardContent>
+                  </Card>
+                ))}
+                <Button variant="outline" className="w-full" onClick={goBack}>Kembali</Button>
+              </div>
+            )}
 
-        {/* CONFIRMATION */}
-        {step === "confirmation" && (
-          <div className="space-y-4">
-            <ShuttleTicket
-              bookingRef={bookingRef}
-              routeName={selectedRoute?.name ?? ""}
-              origin={selectedRoute?.origin ?? ""}
-              destination={selectedRoute?.destination ?? ""}
-              departure={format(new Date(selectedScheduleDeparture), "dd MMM yyyy, HH:mm")}
-              seatCount={seatCount}
-              guestName={guestName}
-              guestPhone={guestPhone}
-              totalFare={totalFare}
-              paymentStatus={paymentStatus}
-              pickupPointName={selectedPickupPoint?.name}
-            />
-            <Button variant="outline" className="w-full" onClick={handleReset}>Pesan Lagi</Button>
-          </div>
-        )}
+            {/* SEATS */}
+            {step === "seats" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Pilih Kursi</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedRoute?.name} • {format(new Date(selectedScheduleDeparture), "dd MMM yyyy, HH:mm")}
+                    {selectedPickupPoint && ` • 📍 ${selectedPickupPoint.name}`}
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label>Jumlah kursi</Label>
+                    <div className="flex items-center gap-3">
+                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setSeatCount(Math.max(1, seatCount - 1))}>-</Button>
+                      <span className="font-bold w-6 text-center">{seatCount}</span>
+                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setSeatCount(Math.min(selectedScheduleSeats, seatCount + 1))}>+</Button>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Total</span>
+                    <span className="font-extrabold text-lg">Rp {totalFare.toLocaleString("id-ID")}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={goBack}>Kembali</Button>
+                    <Button className="flex-1 gradient-primary text-primary-foreground font-bold" onClick={handleConfirmSeats}>Lanjut</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* GUEST INFO */}
+            {step === "guest_info" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Info Penumpang</CardTitle>
+                  <p className="text-xs text-muted-foreground">Tidak perlu akun</p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="gn">Nama Lengkap</Label>
+                    <Input id="gn" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Nama Anda" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="gp">Nomor HP</Label>
+                    <Input id="gp" type="tel" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder="+62 812..." />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={goBack}>Kembali</Button>
+                    <Button className="flex-1 gradient-primary text-primary-foreground font-bold" onClick={handleGuestInfoNext}>Lanjut ke Pembayaran</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* PAYMENT */}
+            {step === "payment" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Pembayaran</CardTitle>
+                  <p className="text-xs text-muted-foreground">{selectedRoute?.name} • {seatCount} kursi • Rp {totalFare.toLocaleString("id-ID")}</p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <button onClick={handlePayCash} disabled={booking || processingPayment}
+                    className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary transition-colors">
+                    <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center"><Banknote className="w-6 h-6 text-primary" /></div>
+                    <div className="text-left"><p className="font-bold text-sm">Bayar Tunai</p><p className="text-xs text-muted-foreground">Bayar langsung saat naik</p></div>
+                  </button>
+                  <button onClick={() => handlePayOnline("midtrans")} disabled={booking || processingPayment}
+                    className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary transition-colors">
+                    <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center"><CreditCard className="w-6 h-6 text-secondary" /></div>
+                    <div className="text-left"><p className="font-bold text-sm">Midtrans</p><p className="text-xs text-muted-foreground">GoPay, VA, Kartu Kredit</p></div>
+                  </button>
+                  <button onClick={() => handlePayOnline("xendit")} disabled={booking || processingPayment}
+                    className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary transition-colors">
+                    <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center"><CreditCard className="w-6 h-6 text-secondary" /></div>
+                    <div className="text-left"><p className="font-bold text-sm">Xendit</p><p className="text-xs text-muted-foreground">OVO, DANA, Transfer Bank</p></div>
+                  </button>
+                  {(booking || processingPayment) && <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}
+                  <Button variant="outline" className="w-full" onClick={goBack}>Kembali</Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* CONFIRMATION */}
+            {step === "confirmation" && (
+              <div className="space-y-4">
+                <ShuttleTicket
+                  bookingRef={bookingRef}
+                  routeName={selectedRoute?.name ?? ""}
+                  origin={selectedRoute?.origin ?? ""}
+                  destination={selectedRoute?.destination ?? ""}
+                  departure={format(new Date(selectedScheduleDeparture), "dd MMM yyyy, HH:mm")}
+                  seatCount={seatCount}
+                  guestName={guestName}
+                  guestPhone={guestPhone}
+                  totalFare={totalFare}
+                  paymentStatus={paymentStatus}
+                  pickupPointName={selectedPickupPoint?.name}
+                />
+                <Button variant="outline" className="w-full" onClick={handleReset}>Pesan Lagi</Button>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="history" className="space-y-4">
+            {!user ? (
+              <div className="text-center py-12 bg-card rounded-2xl border border-dashed">
+                <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                <p className="text-sm text-muted-foreground mb-4">Masuk untuk melihat riwayat perjalanan Anda</p>
+                <Button onClick={() => navigate("/auth")}>Masuk Sekarang</Button>
+              </div>
+            ) : historyLoading ? (
+              <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+            ) : userBookings?.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Bus className="w-12 h-12 mx-auto mb-3 opacity-40" />
+                <p className="text-sm">Belum ada riwayat pemesanan</p>
+              </div>
+            ) : (
+              userBookings?.map((b: any) => (
+                <Card key={b.id} className="overflow-hidden">
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div>
+                      <p className="font-mono font-bold text-xs text-primary">{b.booking_ref}</p>
+                      <p className="font-bold text-sm">{b.shuttle_schedules?.shuttle_routes?.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(b.shuttle_schedules?.departure_time), "dd MMM yyyy, HH:mm")}
+                      </p>
+                      {b.shuttle_pickup_points?.name && (
+                        <p className="text-xs text-muted-foreground mt-1">📍 {b.shuttle_pickup_points.name}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-sm">Rp {b.total_fare.toLocaleString("id-ID")}</p>
+                      <Badge variant={b.payment_status === "paid" ? "default" : "outline"} className="text-[10px] mt-1">
+                        {b.payment_status}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

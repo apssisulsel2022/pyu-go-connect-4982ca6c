@@ -18,7 +18,7 @@ export default function BookingsTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shuttle_bookings")
-        .select("*, shuttle_schedules!inner(departure_time, route_id, shuttle_routes:route_id(name, origin, destination)), shuttle_pickup_points(name)")
+        .select("*, shuttle_schedules(departure_time, shuttle_routes(name, origin, destination)), shuttle_pickup_points(name, rayon:shuttle_rayons(name))")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -51,7 +51,13 @@ export default function BookingsTab() {
                     <p className="font-mono font-bold text-xs text-primary">{b.booking_ref}</p>
                     <p className="text-xs text-muted-foreground">{b.guest_name} • {b.seat_count} kursi</p>
                     <p className="text-xs text-muted-foreground">{route?.name ?? "-"}</p>
-                    {b.shuttle_pickup_points?.name && <p className="text-xs text-muted-foreground">📍 {b.shuttle_pickup_points.name}</p>}
+                    {b.shuttle_pickup_points ? (
+                      <p className="text-xs text-muted-foreground">
+                        📍 {b.shuttle_pickup_points.name} ({b.shuttle_pickup_points.rayon?.name})
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">Base Route</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={b.payment_status === "paid" ? "default" : "outline"} className="text-xs">{b.payment_status}</Badge>
