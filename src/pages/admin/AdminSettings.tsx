@@ -136,8 +136,44 @@ function ServiceZonesTab() {
 
   if (isLoading) return <Loader2 className="w-5 h-5 animate-spin mx-auto mt-8" />;
 
+  const validZones = useMemo(() => zones.filter((z) => z.lat !== 0 && z.lng !== 0 && z.radius_km > 0), [zones]);
+
   return (
     <div className="space-y-4">
+      {/* Map visualization */}
+      {validZones.length > 0 && (
+        <Card>
+          <CardContent className="pt-4 p-0 overflow-hidden rounded-lg">
+            <div className="h-[300px] md:h-[400px]">
+              <MapContainer
+                center={[validZones[0].lat, validZones[0].lng]}
+                zoom={10}
+                className="h-full w-full rounded-lg z-0"
+                scrollWheelZoom
+              >
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <FitZones zones={validZones} />
+                {validZones.map((z, i) => (
+                  <Circle
+                    key={`${i}-${z.lat}-${z.lng}-${z.radius_km}`}
+                    center={[z.lat, z.lng]}
+                    radius={z.radius_km * 1000}
+                    pathOptions={{ color: "#10b981", fillColor: "#10b981", fillOpacity: 0.15, weight: 2 }}
+                  >
+                    <Popup>
+                      <span className="font-semibold text-sm">{z.name || `Zone ${i + 1}`}</span>
+                      <br />
+                      <span className="text-xs text-muted-foreground">Radius: {z.radius_km} km</span>
+                    </Popup>
+                  </Circle>
+                ))}
+              </MapContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Zone cards */}
       {zones.map((z, i) => (
         <Card key={i}>
           <CardContent className="pt-4">
@@ -176,6 +212,24 @@ function ServiceZonesTab() {
       </div>
     </div>
   );
+}
+
+// Helper to auto-fit map bounds to all zones
+function FitZones({ zones }: { zones: ZoneConfig[] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (zones.length === 0) return;
+    const L = (window as any).L;
+    if (!L) return;
+    const bounds = L.latLngBounds(zones.map((z: ZoneConfig) => [z.lat, z.lng]));
+    // Pad bounds by largest radius
+    const maxRadius = Math.max(...zones.map((z: ZoneConfig) => z.radius_km));
+    const padDeg = maxRadius / 111; // rough km-to-degree
+    bounds.extend([bounds.getSouth() - padDeg, bounds.getWest() - padDeg]);
+    bounds.extend([bounds.getNorth() + padDeg, bounds.getEast() + padDeg]);
+    map.fitBounds(bounds, { padding: [20, 20], maxZoom: 13 });
+  }, [zones, map]);
+  return null;
 }
 
 // ─── Payment Gateways Tab ──────────────────────
