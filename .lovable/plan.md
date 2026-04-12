@@ -1,64 +1,87 @@
 
-# PYU GO — Super App MVP Plan
+
+# Payment & Wallet System with Midtrans + Xendit Integration
 
 ## Overview
-Build **PYU GO** as a mobile-first React PWA with two main modules (on-demand ride & shuttle booking), an admin dashboard, and a Supabase backend. The uploaded logos will be used as app branding.
 
----
+Build a complete wallet and payment system for PYU GO with user wallets, driver wallets, top-up via Midtrans/Xendit, transaction history, and admin payment settings.
 
-## Phase 1: Foundation & Auth
+## Database Schema (Migration)
 
-- **Project structure**: Feature-based folder organization (`src/features/ride`, `src/features/shuttle`, `src/features/admin`, `src/shared`)
-- **Branding**: Embed PYU GO logos, set up color palette (blue-to-green gradient from logo), typography
-- **Auth system** (Supabase Auth):
-  - Email/password login for registered users (riders)
-  - Guest mode for shuttle booking (no login required)
-  - Admin login with role-based access (user_roles table)
-- **Database schema**: Users, profiles, roles, vehicles, drivers, rides, shuttle_routes, shuttle_schedules, shuttle_bookings, shuttle_seats
+**New tables:**
 
-## Phase 2: Map & Ride Module
+1. **`wallets`** — One per user/driver
+   - `id`, `user_id` (uuid, unique), `balance` (numeric, default 0), `wallet_type` (enum: `user`, `driver`), `created_at`, `updated_at`
+   - RLS: users can view own wallet; admins can view all
 
-- **Leaflet/OSM map** as the primary UI (map-first design)
-- **Ride request flow**:
-  - Pick-up & drop-off location selection on map with geocoding
-  - Fare estimation (edge function for pricing logic)
-  - Ride request submission → stored in DB with realtime status
-- **Ride status tracking**: Pending → Accepted → In Progress → Completed/Cancelled
-- **Live driver location**: Supabase Realtime channel for driver position updates displayed on map
-- **Bottom navigation**: Home (Map), Activity, Account
+2. **`wallet_transactions`** — Ledger of all wallet movements
+   - `id`, `wallet_id` (references wallets), `type` (enum: `top_up`, `ride_payment`, `ride_earning`, `withdrawal`, `refund`, `admin_adjustment`), `amount` (numeric), `balance_after` (numeric), `reference_id` (text, nullable — ride_id or payment gateway ref), `description` (text), `status` (enum: `pending`, `completed`, `failed`), `payment_gateway` (text, nullable — `midtrans` or `xendit`), `gateway_transaction_id` (text, nullable), `created_at`
+   - RLS: users can view own transactions; admins can view all
 
-## Phase 3: Shuttle Module
+3. **`payment_settings`** — Admin-configurable gateway settings
+   - `id`, `gateway` (text — `midtrans` or `xendit`), `is_active` (boolean), `is_default` (boolean), `config` (jsonb — stores non-secret config like environment mode), `created_at`, `updated_at`
+   - RLS: admins only
 
-- **Shuttle routes & schedules**: Browse available routes with departure times
-- **Seat booking**: Select schedule → choose seats → confirm booking (guest or logged-in)
-- **Booking confirmation**: Summary with booking reference number
-- **Guest checkout**: Name + phone number only, no account required
+**New enums:** `wallet_type`, `transaction_type`, `transaction_status`
 
-## Phase 4: Admin Dashboard
+**Database function:** `process_wallet_transaction` — atomic balance update + transaction insert to prevent race conditions.
 
-- **Separate `/admin` route** with role-based protection
-- **Dashboard overview**: Active rides, today's shuttle bookings, revenue stats
-- **Ride management**: View all rides, statuses, assign drivers manually
-- **Shuttle management**: CRUD for routes, schedules, seat configurations
-- **Driver management**: Add/edit drivers, view activity
-- **User management**: View registered users
+Enable realtime on `wallets` and `wallet_transactions`.
 
-## Phase 5: Edge Functions & Realtime
+## Edge Functions
 
-- **Pricing edge function**: Distance-based fare calculation using coordinates
-- **Dispatch edge function**: Auto-assign nearest available driver to ride request
-- **Realtime subscriptions**: Ride status changes, driver location updates
+1. **`create-topup`** — Initiates a top-up:
+   - Validates amount, checks active payment gateway from `payment_settings`
+   - Calls Midtrans Snap API or Xendit Invoice API to create a payment
+   - Inserts a `pending` transaction, returns payment URL/token to frontend
 
-## Technical Stack
-- React + TypeScript + Tailwind CSS
-- Leaflet + React-Leaflet for maps
-- Supabase (Auth, Postgres, Realtime, Edge Functions, RLS)
-- React Router for navigation
-- TanStack Query for data fetching
-- Zustand for client state management (React alternative to Riverpod)
+2. **`payment-webhook`** — Handles callbacks from both gateways:
+   - Verifies webhook signature (Midtrans server key / Xendit callback token)
+   - On success: updates transaction status to `completed`, credits wallet balance
+   - On failure: updates transaction to `failed`
 
-## UI/UX
-- Mobile-first, map-centric design
-- PYU GO branding (blue-green gradient theme)
-- Bottom tab navigation (Home, Rides, Shuttle, Profile)
-- Clean, modern super-app feel inspired by Gojek/Grab
+3. **`process-ride-payment`** — Called when ride completes:
+   - Deducts fare from rider wallet, credits driver wallet (minus platform commission)
+   - Creates paired transactions for both wallets
+
+## Secrets Required
+
+User will need to provide:
+- `MIDTRANS_SERVER_KEY` — Midtrans server key
+- `MIDTRANS_CLIENT_KEY` — Midtrans client key (for Snap.js)
+- `XENDIT_SECRET_KEY` — Xendit API key
+- `XENDIT_WEBHOOK_TOKEN` — Xendit webhook verification token
+
+## Frontend Pages
+
+1. **`src/pages/Wallet.tsx`** — Main wallet page:
+   - Balance card with top-up button
+   - Transaction history list (filterable by type)
+   - Top-up flow: amount input → gateway selection → redirect to payment page
+
+2. **`src/components/wallet/TopUpDialog.tsx`** — Modal for selecting amount and gateway
+3. **`src/components/wallet/TransactionList.tsx`** — Reusable transaction history component
+
+3. **Bottom nav update** — Add Wallet icon between Shuttle and Profile
+
+4. **Admin pages:**
+   - **`src/pages/admin/AdminPayments.tsx`** — Payment gateway settings:
+     - Toggle Midtrans/Xendit active status
+     - Set default gateway
+     - View all transactions across users
+     - Manual wallet adjustments
+   - Add "Payments" nav item to `AdminLayout.tsx`
+
+## Routing
+
+- Add `/wallet` route inside `AppLayout`
+- Add `/admin/payments` route inside `AdminLayout`
+
+## Technical Details
+
+- Midtrans: Use Snap.js for frontend payment popup (load script dynamically)
+- Xendit: Use Invoice API, redirect user to Xendit-hosted payment page
+- Wallet balance updates use a database function with `FOR UPDATE` row locking
+- All monetary values in IDR (Rp), stored as numeric
+- Commission rate stored in `payment_settings` config JSON
+
