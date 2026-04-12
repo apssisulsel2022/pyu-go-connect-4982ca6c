@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bus, Clock, MapPin, Users, ArrowRight, Loader2, Banknote, CreditCard, CalendarIcon } from "lucide-react";
+import { Bus, Clock, MapPin, Users, ArrowRight, Loader2, Banknote, CreditCard, CalendarIcon, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,8 @@ export default function Shuttle() {
   const [paymentStatus, setPaymentStatus] = useState("unpaid");
   const [processingPayment, setProcessingPayment] = useState(false);
   const [sessionId] = useState(() => user?.id || `guest-${crypto.randomUUID()}`);
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState<string>("");
 
   const { data: serviceTypes } = useQuery({
     queryKey: ["shuttle-service-types"],
@@ -113,10 +115,86 @@ export default function Shuttle() {
         .eq("schedule_id", selectedScheduleId)
         .order("seat_number");
       if (error) throw error;
-      return data as SeatInfo[];
+      
+      // Map seat_number to number for compatibility with SeatLayout component
+      return (data || []).map((s: any) => ({
+        ...s,
+        number: s.seat_number
+      })) as SeatInfo[];
     },
     enabled: !!selectedScheduleId,
   });
+
+  useEffect(() => {
+    if (!selectedScheduleId) return;
+
+    const channel = supabase
+      .channel(`seats-${selectedScheduleId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "shuttle_seats",
+          filter: `schedule_id=eq.${selectedScheduleId}`,
+        },
+        () => {
+          refetchSeats();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedScheduleId, refetchSeats]);
+
+  const releaseSeats = useCallback(async () => {
+    if (!selectedScheduleId || selectedSeats.length === 0) return;
+
+    try {
+      await (supabase as any)
+        .from("shuttle_seats")
+        .update({
+          status: "available",
+          reserved_at: null,
+          reserved_by_session: null
+        })
+        .eq("schedule_id", selectedScheduleId)
+        .eq("reserved_by_session", sessionId)
+        .eq("status", "reserved");
+
+      setLockedUntil(null);
+      setTimeLeft("");
+      refetchSeats();
+    } catch (err) {
+      console.error("Failed to release seats:", err);
+    }
+  }, [selectedScheduleId, selectedSeats, sessionId, refetchSeats]);
+
+  useEffect(() => {
+    if (!lockedUntil) return;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const diff = lockedUntil - now;
+
+      if (diff <= 0) {
+        clearInterval(interval);
+        setTimeLeft("Waktu Habis");
+        setLockedUntil(null);
+        toast.error("Waktu pemesanan habis. Silakan pilih kursi kembali.");
+        setStep("seats");
+        return;
+      }
+
+      const minutes = Math.floor(diff / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${minutes}:${seconds.toString().padStart(2, "0")}`);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [lockedUntil]);
 
   const selectedRoute = routes?.find((r) => r.id === selectedRouteId);
   const selectedSchedule = selectedRoute?.schedules.find((s: any) => s.id === selectedScheduleId);
@@ -220,6 +298,7 @@ export default function Shuttle() {
         return;
       }
       
+      setLockedUntil(Date.now() + 10 * 60000);
       setStep("guest_info");
     } catch (err: any) {
       toast.error("Gagal mengunci kursi: " + err.message);
@@ -326,6 +405,7 @@ export default function Shuttle() {
   };
 
   const handleReset = () => {
+    if (lockedUntil) releaseSeats();
     setStep("routes");
     setSelectedRouteId(null);
     setSelectedDate(undefined);
@@ -341,6 +421,8 @@ export default function Shuttle() {
     setBookingId("");
     setPaymentMethod("cash");
     setPaymentStatus("unpaid");
+    setLockedUntil(null);
+    setTimeLeft("");
   };
 
   const goBack = () => {
@@ -350,7 +432,10 @@ export default function Shuttle() {
     else if (step === "schedule") setStep("vehicle");
     else if (step === "pickup") setStep("schedule");
     else if (step === "seats") setStep(rayons && (rayons as any[]).length > 0 ? "pickup" : "schedule");
-    else if (step === "guest_info") setStep("seats");
+    else if (step === "guest_info") {
+      releaseSeats();
+      setStep("seats");
+    }
     else if (step === "payment") setStep("guest_info");
   };
 
@@ -636,55 +721,81 @@ export default function Shuttle() {
 
             {/* GUEST INFO */}
             {step === "guest_info" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Info Penumpang</CardTitle>
-                  <p className="text-xs text-muted-foreground">Tidak perlu akun</p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="gn">Nama Lengkap</Label>
-                    <Input id="gn" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Nama Anda" />
+              <div className="space-y-4">
+                {timeLeft && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-yellow-700">
+                      <Timer className="w-4 h-4 animate-pulse" />
+                      <span className="text-xs font-bold uppercase tracking-wider">Sisa Waktu Pembayaran</span>
+                    </div>
+                    <span className="font-mono font-bold text-yellow-800 bg-yellow-200/50 px-2 py-1 rounded text-sm">
+                      {timeLeft}
+                    </span>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="gp">Nomor HP</Label>
-                    <Input id="gp" type="tel" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder="+62 812..." />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" className="flex-1" onClick={goBack}>Kembali</Button>
-                    <Button className="flex-1 gradient-primary text-primary-foreground font-bold" onClick={handleGuestInfoNext}>Lanjut ke Pembayaran</Button>
-                  </div>
-                </CardContent>
-              </Card>
+                )}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Info Penumpang</CardTitle>
+                    <p className="text-xs text-muted-foreground">Tidak perlu akun</p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="gn">Nama Lengkap</Label>
+                      <Input id="gn" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Nama Anda" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="gp">Nomor HP</Label>
+                      <Input id="gp" type="tel" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder="+62 812..." />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="flex-1" onClick={goBack}>Kembali</Button>
+                      <Button className="flex-1 gradient-primary text-primary-foreground font-bold" onClick={handleGuestInfoNext}>Lanjut ke Pembayaran</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             )}
 
             {/* PAYMENT */}
             {step === "payment" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Pembayaran</CardTitle>
-                  <p className="text-xs text-muted-foreground">{selectedRoute?.name} • {selectedSeats.length} kursi • Rp {totalFare.toLocaleString("id-ID")}</p>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <button onClick={handlePayCash} disabled={booking || processingPayment}
-                    className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary transition-colors">
-                    <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center"><Banknote className="w-6 h-6 text-primary" /></div>
-                    <div className="text-left"><p className="font-bold text-sm">Bayar Tunai</p><p className="text-xs text-muted-foreground">Bayar langsung saat naik</p></div>
-                  </button>
-                  <button onClick={() => handlePayOnline("midtrans")} disabled={booking || processingPayment}
-                    className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary transition-colors">
-                    <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center"><CreditCard className="w-6 h-6 text-secondary" /></div>
-                    <div className="text-left"><p className="font-bold text-sm">Midtrans</p><p className="text-xs text-muted-foreground">GoPay, VA, Kartu Kredit</p></div>
-                  </button>
-                  <button onClick={() => handlePayOnline("xendit")} disabled={booking || processingPayment}
-                    className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary transition-colors">
-                    <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center"><CreditCard className="w-6 h-6 text-secondary" /></div>
-                    <div className="text-left"><p className="font-bold text-sm">Xendit</p><p className="text-xs text-muted-foreground">OVO, DANA, Transfer Bank</p></div>
-                  </button>
-                  {(booking || processingPayment) && <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}
-                  <Button variant="outline" className="w-full" onClick={goBack}>Kembali</Button>
-                </CardContent>
-              </Card>
+              <div className="space-y-4">
+                {timeLeft && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-yellow-700">
+                      <Timer className="w-4 h-4 animate-pulse" />
+                      <span className="text-xs font-bold uppercase tracking-wider">Sisa Waktu Pembayaran</span>
+                    </div>
+                    <span className="font-mono font-bold text-yellow-800 bg-yellow-200/50 px-2 py-1 rounded text-sm">
+                      {timeLeft}
+                    </span>
+                  </div>
+                )}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Pembayaran</CardTitle>
+                    <p className="text-xs text-muted-foreground">{selectedRoute?.name} • {selectedSeats.length} kursi • Rp {totalFare.toLocaleString("id-ID")}</p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <button onClick={handlePayCash} disabled={booking || processingPayment}
+                      className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary transition-colors">
+                      <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center"><Banknote className="w-6 h-6 text-primary" /></div>
+                      <div className="text-left"><p className="font-bold text-sm">Bayar Tunai</p><p className="text-xs text-muted-foreground">Bayar langsung saat naik</p></div>
+                    </button>
+                    <button onClick={() => handlePayOnline("midtrans")} disabled={booking || processingPayment}
+                      className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary transition-colors">
+                      <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center"><CreditCard className="w-6 h-6 text-secondary" /></div>
+                      <div className="text-left"><p className="font-bold text-sm">Midtrans</p><p className="text-xs text-muted-foreground">GoPay, VA, Kartu Kredit</p></div>
+                    </button>
+                    <button onClick={() => handlePayOnline("xendit")} disabled={booking || processingPayment}
+                      className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary transition-colors">
+                      <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center"><CreditCard className="w-6 h-6 text-secondary" /></div>
+                      <div className="text-left"><p className="font-bold text-sm">Xendit</p><p className="text-xs text-muted-foreground">OVO, DANA, Transfer Bank</p></div>
+                    </button>
+                    {(booking || processingPayment) && <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}
+                    <Button variant="outline" className="w-full" onClick={goBack}>Kembali</Button>
+                  </CardContent>
+                </Card>
+              </div>
             )}
 
             {/* CONFIRMATION */}
