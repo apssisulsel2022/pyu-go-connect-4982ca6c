@@ -51,6 +51,20 @@ export default function Profile() {
     enabled: !!user,
   });
 
+  const { data: isDriver } = useQuery({
+    queryKey: ["is-driver", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("drivers")
+        .select("id")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return !!data;
+    },
+    enabled: !!user,
+  });
+
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 gap-4">
@@ -94,6 +108,9 @@ export default function Profile() {
       <div className="px-6 space-y-2">
         <ProfileItem label="My Rides" icon={<ChevronRight className="w-4 h-4" />} onClick={() => {}} />
         <ProfileItem label="My Shuttle Bookings" icon={<ChevronRight className="w-4 h-4" />} onClick={() => {}} />
+        {isDriver && (
+          <ProfileItem label="Driver Mode" icon={<Truck className="w-4 h-4" />} onClick={() => navigate("/driver")} />
+        )}
         {isAdmin && (
           <ProfileItem label="Admin Dashboard" icon={<Shield className="w-4 h-4" />} onClick={() => navigate("/admin")} />
         )}
