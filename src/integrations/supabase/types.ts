@@ -248,16 +248,25 @@ export type Database = {
           gender: Database["public"]["Enums"]["gender_type"]
           id: string
           is_verified: boolean
+          ktp_number: string | null
+          ktp_url: string | null
           license_number: string | null
+          location: unknown
           phone: string
           pin_hash: string | null
           prefers_bike: boolean
           prefers_bike_women: boolean
           prefers_car: boolean
           rating: number | null
+          registration_status:
+            | Database["public"]["Enums"]["registration_status"]
+            | null
+          rejection_reason: string | null
+          sim_url: string | null
           status: Database["public"]["Enums"]["driver_status"]
           updated_at: string
           user_id: string | null
+          vehicle_stnk_url: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -269,16 +278,25 @@ export type Database = {
           gender?: Database["public"]["Enums"]["gender_type"]
           id?: string
           is_verified?: boolean
+          ktp_number?: string | null
+          ktp_url?: string | null
           license_number?: string | null
+          location?: unknown
           phone: string
           pin_hash?: string | null
           prefers_bike?: boolean
           prefers_bike_women?: boolean
           prefers_car?: boolean
           rating?: number | null
+          registration_status?:
+            | Database["public"]["Enums"]["registration_status"]
+            | null
+          rejection_reason?: string | null
+          sim_url?: string | null
           status?: Database["public"]["Enums"]["driver_status"]
           updated_at?: string
           user_id?: string | null
+          vehicle_stnk_url?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -290,16 +308,25 @@ export type Database = {
           gender?: Database["public"]["Enums"]["gender_type"]
           id?: string
           is_verified?: boolean
+          ktp_number?: string | null
+          ktp_url?: string | null
           license_number?: string | null
+          location?: unknown
           phone?: string
           pin_hash?: string | null
           prefers_bike?: boolean
           prefers_bike_women?: boolean
           prefers_car?: boolean
           rating?: number | null
+          registration_status?:
+            | Database["public"]["Enums"]["registration_status"]
+            | null
+          rejection_reason?: string | null
+          sim_url?: string | null
           status?: Database["public"]["Enums"]["driver_status"]
           updated_at?: string
           user_id?: string | null
+          vehicle_stnk_url?: string | null
         }
         Relationships: [
           {
@@ -484,6 +511,39 @@ export type Database = {
           rating?: number | null
           star_rating?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      otp_verifications: {
+        Row: {
+          code: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          target: string
+          type: string
+          user_id: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          target: string
+          type: string
+          user_id?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          target?: string
+          type?: string
+          user_id?: string | null
+          verified_at?: string | null
         }
         Relationships: []
       }
@@ -701,11 +761,13 @@ export type Database = {
           dropoff_address: string | null
           dropoff_lat: number
           dropoff_lng: number
+          dropoff_location: unknown
           fare: number | null
           id: string
           pickup_address: string | null
           pickup_lat: number
           pickup_lng: number
+          pickup_location: unknown
           rider_id: string
           service_type: Database["public"]["Enums"]["ride_service_type"]
           status: Database["public"]["Enums"]["ride_status"]
@@ -718,11 +780,13 @@ export type Database = {
           dropoff_address?: string | null
           dropoff_lat: number
           dropoff_lng: number
+          dropoff_location?: unknown
           fare?: number | null
           id?: string
           pickup_address?: string | null
           pickup_lat: number
           pickup_lng: number
+          pickup_location?: unknown
           rider_id: string
           service_type?: Database["public"]["Enums"]["ride_service_type"]
           status?: Database["public"]["Enums"]["ride_status"]
@@ -735,11 +799,13 @@ export type Database = {
           dropoff_address?: string | null
           dropoff_lat?: number
           dropoff_lng?: number
+          dropoff_location?: unknown
           fare?: number | null
           id?: string
           pickup_address?: string | null
           pickup_lat?: number
           pickup_lng?: number
+          pickup_location?: unknown
           rider_id?: string
           service_type?: Database["public"]["Enums"]["ride_service_type"]
           status?: Database["public"]["Enums"]["ride_status"]
@@ -802,7 +868,6 @@ export type Database = {
           payment_status: string
           pickup_point_id: string | null
           rayon_id: string | null
-          notes: string | null
           schedule_id: string
           seat_count: number
           status: Database["public"]["Enums"]["booking_status"]
@@ -820,7 +885,6 @@ export type Database = {
           payment_status?: string
           pickup_point_id?: string | null
           rayon_id?: string | null
-          notes?: string | null
           schedule_id: string
           seat_count?: number
           status?: Database["public"]["Enums"]["booking_status"]
@@ -838,7 +902,6 @@ export type Database = {
           payment_status?: string
           pickup_point_id?: string | null
           rayon_id?: string | null
-          notes?: string | null
           schedule_id?: string
           seat_count?: number
           status?: Database["public"]["Enums"]["booking_status"]
@@ -1341,10 +1404,7 @@ export type Database = {
     }
     Functions: {
       assign_driver_to_shuttle: {
-        Args: {
-          p_schedule_id: string
-          p_driver_id: string
-        }
+        Args: { p_driver_id: string; p_schedule_id: string }
         Returns: boolean
       }
       cleanup_expired_seat_reservations: { Args: never; Returns: undefined }
@@ -1407,6 +1467,7 @@ export type Database = {
       promo_discount_type: "percentage" | "fixed_amount"
       promo_target_service: "ride" | "shuttle" | "hotel" | "all"
       promo_user_segment: "all" | "new_user" | "loyal_user" | "inactive_user"
+      registration_status: "pending" | "approved" | "rejected"
       ride_service_type: "bike" | "bike_women" | "car"
       ride_status:
         | "pending"
@@ -1560,6 +1621,7 @@ export const Constants = {
       promo_discount_type: ["percentage", "fixed_amount"],
       promo_target_service: ["ride", "shuttle", "hotel", "all"],
       promo_user_segment: ["all", "new_user", "loyal_user", "inactive_user"],
+      registration_status: ["pending", "approved", "rejected"],
       ride_service_type: ["bike", "bike_women", "car"],
       ride_status: [
         "pending",
