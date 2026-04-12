@@ -848,9 +848,11 @@ export type Database = {
           departure_time: string
           id: string
           route_id: string
+          service_type_id: string | null
           total_seats: number
           updated_at: string
           vehicle_id: string | null
+          vehicle_type: string | null
         }
         Insert: {
           active?: boolean
@@ -860,9 +862,11 @@ export type Database = {
           departure_time: string
           id?: string
           route_id: string
+          service_type_id?: string | null
           total_seats?: number
           updated_at?: string
           vehicle_id?: string | null
+          vehicle_type?: string | null
         }
         Update: {
           active?: boolean
@@ -872,9 +876,11 @@ export type Database = {
           departure_time?: string
           id?: string
           route_id?: string
+          service_type_id?: string | null
           total_seats?: number
           updated_at?: string
           vehicle_id?: string | null
+          vehicle_type?: string | null
         }
         Relationships: [
           {
@@ -885,6 +891,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "shuttle_schedules_service_type_id_fkey"
+            columns: ["service_type_id"]
+            isOneToOne: false
+            referencedRelation: "shuttle_service_types"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "shuttle_schedules_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
@@ -892,6 +905,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      shuttle_service_types: {
+        Row: {
+          baggage_info: string
+          created_at: string
+          description: string | null
+          id: string
+          name: Database["public"]["Enums"]["shuttle_service_category"]
+        }
+        Insert: {
+          baggage_info: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: Database["public"]["Enums"]["shuttle_service_category"]
+        }
+        Update: {
+          baggage_info?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: Database["public"]["Enums"]["shuttle_service_category"]
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -1081,6 +1118,7 @@ export type Database = {
       promo_discount_type: "percentage" | "fixed_amount"
       promo_target_service: "ride" | "shuttle" | "hotel" | "all"
       promo_user_segment: "all" | "new_user" | "loyal_user" | "inactive_user"
+      shuttle_service_category: "Reguler" | "Semi Executive" | "Executive"
       ride_service_type: "bike" | "bike_women" | "car"
       ride_status:
         | "pending"

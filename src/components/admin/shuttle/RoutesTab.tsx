@@ -12,6 +12,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 // ---- Route Form ----
 function RouteForm({ route, onClose }: { route?: any; onClose: () => void }) {
   const qc = useQueryClient();
@@ -92,12 +94,27 @@ function ScheduleForm({ schedule, routeId, onClose }: { schedule?: any; routeId:
   const [departureTime, setDepartureTime] = useState(schedule ? format(new Date(schedule.departure_time), "HH:mm") : "");
   const [arrivalTime, setArrivalTime] = useState(schedule?.arrival_time ? format(new Date(schedule.arrival_time), "HH:mm") : "");
   const [totalSeats, setTotalSeats] = useState(schedule?.total_seats ?? 20);
+  const [serviceTypeId, setServiceTypeId] = useState(schedule?.service_type_id ?? "");
+  const [vehicleType, setVehicleType] = useState(schedule?.vehicle_type ?? "SUV");
   const [active, setActive] = useState(schedule?.active ?? true);
   const [saving, setSaving] = useState(false);
+
+  const { data: serviceTypes } = useQuery({
+    queryKey: ["shuttle-service-types"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("shuttle_service_types").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const handleSave = async () => {
     if (!departureDate || !departureTime) {
       toast.error("Tanggal dan jam keberangkatan wajib diisi");
+      return;
+    }
+    if (!serviceTypeId) {
+      toast.error("Pilih jenis layanan");
       return;
     }
     setSaving(true);
@@ -105,15 +122,22 @@ function ScheduleForm({ schedule, routeId, onClose }: { schedule?: any; routeId:
       const depISO = new Date(`${departureDate}T${departureTime}:00`).toISOString();
       const arrISO = arrivalTime ? new Date(`${departureDate}T${arrivalTime}:00`).toISOString() : null;
 
+      const scheduleData = {
+        route_id: routeId,
+        departure_time: depISO,
+        arrival_time: arrISO,
+        total_seats: totalSeats,
+        available_seats: totalSeats,
+        service_type_id: serviceTypeId,
+        vehicle_type: vehicleType,
+        active,
+      };
+
       if (schedule?.id) {
-        const { error } = await supabase.from("shuttle_schedules").update({
-          departure_time: depISO, arrival_time: arrISO, total_seats: totalSeats, available_seats: totalSeats, active,
-        }).eq("id", schedule.id);
+        const { error } = await supabase.from("shuttle_schedules").update(scheduleData as any).eq("id", schedule.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("shuttle_schedules").insert({
-          route_id: routeId, departure_time: depISO, arrival_time: arrISO, total_seats: totalSeats, available_seats: totalSeats, active,
-        });
+        const { error } = await supabase.from("shuttle_schedules").insert(scheduleData as any);
         if (error) throw error;
       }
       toast.success(schedule ? "Jadwal diperbarui" : "Jadwal ditambahkan");
@@ -138,9 +162,39 @@ function ScheduleForm({ schedule, routeId, onClose }: { schedule?: any; routeId:
           <Input type="time" value={departureTime} onChange={(e) => setDepartureTime(e.target.value)} />
         </div>
       </div>
+      
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <Label>Jam Tiba</Label>
+          <Label>Jenis Layanan</Label>
+          <Select value={serviceTypeId} onValueChange={setServiceTypeId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Pilih Layanan" />
+            </SelectTrigger>
+            <SelectContent>
+              {serviceTypes?.map((st) => (
+                <SelectItem key={st.id} value={st.id}>{st.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Jenis Kendaraan</Label>
+          <Select value={vehicleType} onValueChange={setVehicleType}>
+            <SelectTrigger>
+              <SelectValue placeholder="Pilih Kendaraan" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="SUV">SUV</SelectItem>
+              <SelectItem value="MiniCar">MiniCar</SelectItem>
+              <SelectItem value="Hiace">Hiace</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label>Jam Tiba (Opsional)</Label>
           <Input type="time" value={arrivalTime} onChange={(e) => setArrivalTime(e.target.value)} />
         </div>
         <div className="space-y-2">

@@ -19,7 +19,7 @@ import ShuttleTicket from "@/components/shuttle/ShuttleTicket";
 import { SeatLayout, SeatInfo } from "@/components/shuttle/SeatLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-type Step = "routes" | "date" | "schedule" | "pickup" | "seats" | "guest_info" | "payment" | "confirmation";
+type Step = "routes" | "date" | "service" | "schedule" | "pickup" | "seats" | "guest_info" | "payment" | "confirmation";
 
 export default function Shuttle() {
   const navigate = useNavigate();
@@ -28,6 +28,7 @@ export default function Shuttle() {
   const [step, setStep] = useState<Step>("routes");
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedServiceTypeId, setSelectedServiceTypeId] = useState<string | null>(null);
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
   const [selectedScheduleFare, setSelectedScheduleFare] = useState(0);
   const [selectedScheduleSeats, setSelectedScheduleSeats] = useState(0);
@@ -43,6 +44,15 @@ export default function Shuttle() {
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
   const [paymentStatus, setPaymentStatus] = useState("unpaid");
   const [processingPayment, setProcessingPayment] = useState(false);
+
+  const { data: serviceTypes } = useQuery({
+    queryKey: ["shuttle-service-types"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("shuttle_service_types").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const { data: routes, isLoading } = useQuery({
     queryKey: ["shuttle-routes"],
@@ -107,13 +117,15 @@ export default function Shuttle() {
   });
 
   const selectedRoute = routes?.find((r) => r.id === selectedRouteId);
+  const selectedSchedule = selectedRoute?.schedules.find((s: any) => s.id === selectedScheduleId);
 
   // Get unique dates for the selected route
   const availableDates = selectedRoute?.schedules.map((s: any) => new Date(s.departure_time)) ?? [];
 
-  // Get schedules for selected route + date
+  // Get schedules for selected route + date + service type
   const filteredSchedules = selectedRoute?.schedules.filter((s: any) =>
-    selectedDate && isSameDay(new Date(s.departure_time), selectedDate)
+    selectedDate && isSameDay(new Date(s.departure_time), selectedDate) &&
+    (!selectedServiceTypeId || s.service_type_id === selectedServiceTypeId)
   ) ?? [];
 
   const handleSelectRoute = (routeId: string) => {
@@ -125,6 +137,11 @@ export default function Shuttle() {
   const handleSelectDate = (date: Date | undefined) => {
     if (!date) return;
     setSelectedDate(date);
+    setStep("service");
+  };
+
+  const handleSelectService = (serviceId: string) => {
+    setSelectedServiceTypeId(serviceId);
     setStep("schedule");
   };
 
@@ -133,7 +150,7 @@ export default function Shuttle() {
     setSelectedScheduleFare(selectedRoute?.base_fare ?? 0);
     setSelectedScheduleSeats(schedule.available_seats);
     setSelectedScheduleDeparture(schedule.departure_time);
-    if (rayons && rayons.length > 0) {
+    if (rayons && (rayons as any[]).length > 0) {
       setStep("pickup");
     } else {
       setStep("seats");
@@ -307,6 +324,7 @@ export default function Shuttle() {
     setStep("routes");
     setSelectedRouteId(null);
     setSelectedDate(undefined);
+    setSelectedServiceTypeId(null);
     setSelectedScheduleId(null);
     setSelectedPickupPoint(null);
     setSelectedRayonId(null);
@@ -321,9 +339,10 @@ export default function Shuttle() {
 
   const goBack = () => {
     if (step === "date") setStep("routes");
-    else if (step === "schedule") setStep("date");
+    else if (step === "service") setStep("date");
+    else if (step === "schedule") setStep("service");
     else if (step === "pickup") setStep("schedule");
-    else if (step === "seats") setStep(rayons && rayons.length > 0 ? "pickup" : "schedule");
+    else if (step === "seats") setStep(rayons && (rayons as any[]).length > 0 ? "pickup" : "schedule");
     else if (step === "guest_info") setStep("seats");
     else if (step === "payment") setStep("guest_info");
   };
@@ -396,6 +415,40 @@ export default function Shuttle() {
                       }}
                       className={cn("p-3 pointer-events-auto")}
                     />
+                  </CardContent>
+                </Card>
+                <Button variant="outline" className="w-full" onClick={goBack}>Kembali</Button>
+              </div>
+            )}
+
+            {/* STEP NEW: SERVICE TYPE */}
+            {step === "service" && (
+              <div className="space-y-3">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Pilih Jenis Layanan</CardTitle>
+                    <p className="text-xs text-muted-foreground">{selectedRoute?.name} • {selectedDate && format(selectedDate, "dd MMM yyyy")}</p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {serviceTypes?.map((st) => (
+                      <button 
+                        key={st.id} 
+                        onClick={() => handleSelectService(st.id)}
+                        className="w-full text-left p-4 rounded-xl border-2 border-border hover:border-primary transition-all group relative overflow-hidden"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-bold text-lg text-primary">{st.name}</h3>
+                          <Badge variant="outline" className="bg-primary/5">Pilih</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-1">
+                          <span className="font-semibold text-foreground">Bawaan:</span> {st.baggage_info}
+                        </p>
+                        {st.description && <p className="text-[10px] italic text-muted-foreground">{st.description}</p>}
+                        <div className="absolute right-0 bottom-0 opacity-5 group-hover:opacity-10 transition-opacity">
+                          <Bus className="w-16 h-16 -mr-4 -mb-4" />
+                        </div>
+                      </button>
+                    ))}
                   </CardContent>
                 </Card>
                 <Button variant="outline" className="w-full" onClick={goBack}>Kembali</Button>
@@ -483,10 +536,7 @@ export default function Shuttle() {
                   </CardHeader>
                   <CardContent className="p-0">
                     <SeatLayout 
-                      vehicleType={
-                        selectedSeats.length > 7 ? "Hiace" : 
-                        (selectedSeats.length > 4 ? "SUV" : "MiniCar") // Simplified logic for demo
-                      }
+                      vehicleType={selectedSchedule?.vehicle_type ?? "SUV"}
                       seats={scheduleSeats || []}
                       selectedSeats={selectedSeats}
                       onSeatSelect={handleSeatClick}

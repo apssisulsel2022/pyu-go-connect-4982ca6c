@@ -84,12 +84,15 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats }: 
               {renderSeat("4")}
             </div>
             {/* Back Row */}
-            <div className="flex justify-between w-full px-4">
+            <div className="flex justify-between w-full px-2">
               {renderSeat("5")}
-              <div className="w-12" /> {/* Space */}
               {renderSeat("6")}
+              {renderSeat("7")}
             </div>
-            <div className="w-full h-2 bg-accent/50 rounded-full mt-2" />
+            {/* Baggage Row */}
+            <div className="w-full py-3 bg-accent/50 rounded-xl flex items-center justify-center border-2 border-dashed border-accent">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Bagasi</span>
+            </div>
           </div>
         );
       case "MiniCar":
@@ -98,18 +101,18 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats }: 
             <div className="absolute top-0 left-0 w-full h-4 bg-accent/50 rounded-t-full" />
             {/* Front Row */}
             <div className="flex justify-between w-full px-4">
-              <div className="w-12 h-12 flex items-center justify-center text-[10px] text-muted-foreground font-bold">DASH</div>
+              {renderSeat("1")}
               {renderSeat("D", true)}
             </div>
             {/* Middle Row */}
             <div className="flex justify-between w-full px-2">
-              {renderSeat("1")}
-              <div className="w-12" /> {/* Space */}
               {renderSeat("2")}
+              {renderSeat("3")}
+              {renderSeat("4")}
             </div>
-            {/* Back Row (Baggage Area in image) */}
+            {/* Back Row (Baggage Area) */}
             <div className="w-full py-4 bg-accent/50 rounded-xl flex items-center justify-center border-2 border-dashed border-accent">
-              <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Bagasi</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Bagasi</span>
             </div>
           </div>
         );
@@ -117,7 +120,7 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats }: 
         return (
           <div className="flex flex-col gap-4 items-center p-6 bg-accent/30 rounded-3xl border-4 border-accent max-w-[320px] mx-auto relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-4 bg-accent/50 rounded-t-full" />
-            {/* Front Row */}
+            {/* Row 1 */}
             <div className="flex justify-between w-full px-4 mb-2">
               {renderSeat("1")}
               {renderSeat("D", true)}
@@ -140,8 +143,9 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats }: 
               {renderSeat("9")}
               {renderSeat("10")}
             </div>
-            <div className="w-full py-2 bg-accent/50 rounded-b-xl flex items-center justify-center">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase">Bagasi</span>
+            {/* Row 5 */}
+            <div className="w-full py-2 bg-accent/50 rounded-b-xl flex items-center justify-center border-2 border-dashed border-accent">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Bagasi</span>
             </div>
           </div>
         );
