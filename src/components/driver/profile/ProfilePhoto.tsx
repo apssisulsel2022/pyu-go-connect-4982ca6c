@@ -19,7 +19,7 @@ export function ProfilePhoto({ url, onUpload }: ProfilePhotoProps) {
     try {
       setUploading(true);
 
-      if (!event.target.files || event.target.length === 0) {
+      if (!event.target.files || event.target.files.length === 0) {
         throw new Error("You must select an image to upload.");
       }
 

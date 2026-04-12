@@ -168,80 +168,81 @@ export function BasicInfoForm({ driver, onUpdate }: BasicInfoFormProps) {
           </div>
         ) : (
           <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="full_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nama Lengkap</FormLabel>
-                  <FormControl>
-                    <Input {...field} className="rounded-xl" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nomor Telepon</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="+62xxx" className="rounded-xl" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button 
-              type="submit" 
-              className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold"
-              disabled={loading}
-            >
-              {loading ? <Loader2 className="animate-spin" /> : "Simpan Perubahan"}
-            </Button>
-          </form>
-        </Form>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="full_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nama Lengkap</FormLabel>
+                    <FormControl>
+                      <Input {...field} className="rounded-xl" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nomor Telepon</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="+62xxx" className="rounded-xl" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button 
+                type="submit" 
+                className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold"
+                disabled={loading}
+              >
+                {loading ? <Loader2 className="animate-spin" /> : "Simpan Perubahan"}
+              </Button>
+            </form>
+          </Form>
+        )
       ) : (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
-            <InfoItem 
-              icon={<User className="w-4 h-4 text-emerald-600" />} 
-              label="Nama Lengkap" 
-              value={driver.full_name} 
-            />
-            <InfoItem 
-              icon={<Mail className="w-4 h-4 text-emerald-600" />} 
-              label="Email" 
-              value={driver.email || "Email tidak tersedia"} 
-            />
-            <InfoItem 
-              icon={<Calendar className="w-4 h-4 text-emerald-600" />} 
-              label="Bergabung Sejak" 
-              value={format(new Date(driver.created_at), "d MMMM yyyy")} 
-            />
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl">
-              <div className="flex items-center gap-3">
-                <div className="bg-white p-2 rounded-xl shadow-sm border border-slate-100">
-                  {driver.is_verified ? (
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  ) : (
-                    <ShieldAlert className="w-4 h-4 text-amber-500" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Status Verifikasi</p>
-                  <p className={`text-sm font-bold ${driver.is_verified ? "text-emerald-600" : "text-amber-600"}`}>
-                    {driver.is_verified ? "Terverifikasi" : "Menunggu Verifikasi"}
-                  </p>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
+              <InfoItem 
+                icon={<User className="w-4 h-4 text-emerald-600" />} 
+                label="Nama Lengkap" 
+                value={driver.full_name} 
+              />
+              <InfoItem 
+                icon={<Mail className="w-4 h-4 text-emerald-600" />} 
+                label="Email" 
+                value={driver.email || "Email tidak tersedia"} 
+              />
+              <InfoItem 
+                icon={<Calendar className="w-4 h-4 text-emerald-600" />} 
+                label="Bergabung Sejak" 
+                value={format(new Date(driver.created_at), "d MMMM yyyy")} 
+              />
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl">
+                <div className="flex items-center gap-3">
+                  <div className="bg-white p-2 rounded-xl shadow-sm border border-slate-100">
+                    {driver.is_verified ? (
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    ) : (
+                      <ShieldAlert className="w-4 h-4 text-amber-500" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Status Verifikasi</p>
+                    <p className={`text-sm font-bold ${driver.is_verified ? "text-emerald-600" : "text-amber-600"}`}>
+                      {driver.is_verified ? "Terverifikasi" : "Menunggu Verifikasi"}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }
