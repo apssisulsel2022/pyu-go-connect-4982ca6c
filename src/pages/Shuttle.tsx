@@ -21,6 +21,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Step = "routes" | "date" | "service" | "vehicle" | "schedule" | "pickup" | "seats" | "guest_info" | "payment" | "confirmation";
 
+// UUID generator with fallback for browsers that don't support crypto.randomUUID
+const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback: generate a simple UUID v4-like string
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 export default function Shuttle() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -45,7 +58,7 @@ export default function Shuttle() {
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
   const [paymentStatus, setPaymentStatus] = useState("unpaid");
   const [processingPayment, setProcessingPayment] = useState(false);
-  const [sessionId] = useState(() => user?.id || `guest-${crypto.randomUUID()}`);
+  const [sessionId] = useState(() => user?.id || `guest-${generateUUID()}`);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>("");
 
