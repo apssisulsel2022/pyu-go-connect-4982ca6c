@@ -176,7 +176,20 @@ export default function RayonsTab() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("shuttle_rayons").delete().eq("id", id); if (error) throw error; },
+    mutationFn: async (id: string) => {
+      // First, delete all pickup points associated with this rayon
+      const { error: pointsError } = await supabase.from("shuttle_pickup_points").delete().eq("rayon_id", id);
+      if (pointsError) throw pointsError;
+      
+      // Then delete the rayon itself (related bookings will be handled by CASCADE delete)
+      const { error } = await supabase.from("shuttle_rayons").delete().eq("id", id);
+      if (error) {
+        if (error.message?.includes("409") || error.message?.includes("Conflict")) {
+          throw new Error("Tidak dapat menghapus rayon karena ada pemesanan yang terkait. Silakan hapus pemesanan terlebih dahulu.");
+        }
+        throw error;
+      }
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-rayons"] }); toast.success("Rayon dihapus"); },
     onError: (e: any) => toast.error(e.message),
   });
