@@ -41,29 +41,54 @@ export function TopUpDialog({
 
       if (data.gateway === "midtrans" && data.token) {
         // Load Midtrans Snap
-        const clientKey = import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
-        if (!(window as any).snap) {
-          const script = document.createElement("script");
-          script.src = clientKey
-            ? "https://app.sandbox.midtrans.com/snap/snap.js"
-            : "https://app.sandbox.midtrans.com/snap/snap.js";
-          script.setAttribute("data-client-key", clientKey || "");
-          script.onload = () => {
+        // Try to get client key from response first, then from env
+        const clientKey = data.client_key || import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
+        
+        if (!clientKey) {
+          console.error("Midtrans Client Key is missing. Please set VITE_MIDTRANS_CLIENT_KEY or ensure the server returns it.");
+          toast.error("Payment initialization failed: Missing client key");
+          setLoading(false);
+          return;
+        }
+
+        const loadSnap = () => {
+          if ((window as any).snap) {
             (window as any).snap.pay(data.token, {
-              onSuccess: () => { toast.success("Top-up successful!"); onOpenChange(false); },
+              onSuccess: () => { 
+                toast.success("Top-up successful!"); 
+                onOpenChange(false); 
+              },
               onPending: () => toast.info("Payment pending"),
               onError: () => toast.error("Payment failed"),
               onClose: () => toast.info("Payment cancelled"),
             });
-          };
-          document.head.appendChild(script);
+            return true;
+          }
+          return false;
+        };
+
+        const existingScript = document.getElementById("midtrans-snap") as HTMLScriptElement;
+        
+        if (existingScript) {
+          // If script exists but missing client key attribute, remove it and recreate
+          if (!existingScript.getAttribute("data-client-key")) {
+            existingScript.remove();
+            const script = document.createElement("script");
+            script.id = "midtrans-snap";
+            script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
+            script.setAttribute("data-client-key", clientKey);
+            script.onload = loadSnap;
+            document.head.appendChild(script);
+          } else if (!loadSnap()) {
+            existingScript.onload = loadSnap;
+          }
         } else {
-          (window as any).snap.pay(data.token, {
-            onSuccess: () => { toast.success("Top-up successful!"); onOpenChange(false); },
-            onPending: () => toast.info("Payment pending"),
-            onError: () => toast.error("Payment failed"),
-            onClose: () => toast.info("Payment cancelled"),
-          });
+          const script = document.createElement("script");
+          script.id = "midtrans-snap";
+          script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
+          script.setAttribute("data-client-key", clientKey);
+          script.onload = loadSnap;
+          document.head.appendChild(script);
         }
       } else if (data.gateway === "xendit" && data.invoice_url) {
         window.open(data.invoice_url, "_blank");
