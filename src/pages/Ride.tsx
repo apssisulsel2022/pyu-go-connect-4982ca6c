@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { MapView } from "@/components/map/MapView";
 import { useRideStore } from "@/stores/rideStore";
 import { ServiceSelector } from "@/components/ride/ServiceSelector";
@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDriverTracking } from "@/hooks/useDriverTracking";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation, DollarSign, X, Loader2 } from "lucide-react";
+import { MapPin, Navigation, DollarSign, X, Loader2, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -32,7 +32,12 @@ export default function Ride() {
   } = useRideStore();
   const [selectingMode, setSelectingMode] = useState<"pickup" | "dropoff">("pickup");
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
+  const [durationMin, setDurationMin] = useState<number | null>(null);
   const [fareLoading, setFareLoading] = useState(false);
+  const handleRouteInfo = useCallback((dist: number, dur: number) => {
+    setDistanceKm(Math.round(dist * 100) / 100);
+    setDurationMin(Math.round(dur));
+  }, []);
   const nearbyDrivers = useDriverTracking(true);
   const driverMarkers = nearbyDrivers.map((d) => ({
     id: d.id, name: d.full_name, lat: d.current_lat, lng: d.current_lng,
@@ -147,7 +152,12 @@ export default function Ride() {
 
   return (
     <div className="relative h-screen">
-      <MapView pickup={pickup} dropoff={dropoff} drivers={driverMarkers} onMapClick={handleMapClick} className="w-full h-full" />
+      <MapView
+        pickup={pickup} dropoff={dropoff} drivers={driverMarkers}
+        onMapClick={handleMapClick}
+        onRouteInfo={handleRouteInfo}
+        className="w-full h-full"
+      />
 
       {/* Top bar overlay */}
       <div className="absolute top-4 left-4 right-4 z-10">
@@ -219,9 +229,14 @@ export default function Ride() {
               <h3 className="font-bold text-lg">Ride Summary</h3>
               <button onClick={resetRide} className="text-muted-foreground"><X className="w-5 h-5" /></button>
             </div>
-            <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-3 mb-2 text-xs text-muted-foreground">
               <span className="capitalize">{serviceType.replace("_", " ")}</span>
               {distanceKm && <span>• {distanceKm.toFixed(1)} km</span>}
+              {durationMin && (
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" /> ~{durationMin} menit
+                </span>
+              )}
             </div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
