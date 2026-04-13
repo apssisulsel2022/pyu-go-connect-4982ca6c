@@ -123,6 +123,7 @@ export default function DriverProfile() {
 
         {/* Vehicle Information */}
         <VehicleInfo 
+          driverId={driver.id}
           vehicles={driver.vehicles}
           currentVehicleId={driver.current_vehicle_id}
           onUpdate={() => queryClient.invalidateQueries({ queryKey: ["driver-profile-full"] })}
