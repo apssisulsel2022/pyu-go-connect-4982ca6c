@@ -1,6 +1,10 @@
+import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Car, Bus, Users, UserCog, CreditCard, Building2, Settings, ArrowLeft, Send } from "lucide-react";
+import { LayoutDashboard, Car, Bus, Users, UserCog, CreditCard, Building2, Settings, ArrowLeft, Send, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 const adminNav = [
   { to: "/admin", icon: LayoutDashboard, label: "Overview", end: true },
@@ -16,16 +20,43 @@ const adminNav = [
 
 export default function AdminLayout() {
   const navigate = useNavigate();
+  const { signOut } = useAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true);
+      await signOut();
+      toast.success("Berhasil logout");
+      navigate("/");
+    } catch (error) {
+      toast.error("Logout gagal");
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Top bar */}
-      <header className="bg-card border-b border-border px-4 py-3 flex items-center gap-3 sticky top-0 z-50">
-        <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <img src="/pyu_go_icon.png" alt="PYU GO" className="w-7 h-7 rounded-lg" />
-        <h1 className="font-bold text-sm">PYU GO Admin</h1>
+      <header className="bg-card border-b border-border px-4 py-3 flex items-center justify-between sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <img src="/pyu_go_icon.png" alt="PYU GO" className="w-7 h-7 rounded-lg" />
+          <h1 className="font-bold text-sm">PYU GO Admin</h1>
+        </div>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="gap-2"
+        >
+          <LogOut className="w-4 h-4" />
+          {loggingOut ? "Logging out..." : "Logout"}
+        </Button>
       </header>
 
       <div className="flex">
