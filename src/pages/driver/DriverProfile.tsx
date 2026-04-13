@@ -2,12 +2,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader } from "lucide-react";
+import { Loader, Truck, Zap, MapPin, TrendingUp } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import DriverBasicInfoTab from "./tabs/DriverBasicInfoTab";
 import DriverVehiclesTab from "./tabs/DriverVehiclesTab";
 import DriverSettingsTab from "./tabs/DriverSettingsTab";
 import { DriverProfileService } from "@/services/DriverProfileService";
+import GuestAccessCard from "@/components/GuestAccessCard";
 
 /**
  * Driver Profile Component
@@ -19,11 +20,19 @@ export default function DriverProfile() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground">Please log in as a driver</p>
-        </div>
-      </div>
+      <GuestAccessCard
+        icon={<Truck />}
+        title="Akses Driver Profile Diperlukan"
+        description="Daftar sebagai driver untuk mengelola kendaraan, dokumen, dan pengaturan layanan Anda. Mulai hasilkan pendapatan hari ini!"
+        features={[
+          "🚗 Kelola armada kendaraan Anda",
+          "📋 Unggah dokumen verifikasi",
+          "🗺️ Atur area layanan",
+          "💰 Pantau pendapatan perjalanan",
+        ]}
+        ctaText="Daftar sebagai Driver"
+        ctaLink="/auth"
+      />
     );
   }
 

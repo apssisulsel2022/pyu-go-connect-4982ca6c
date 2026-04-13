@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader } from "lucide-react";
+import { Loader, Lock, Zap, Heart, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import UserBasicInfoTab from "./tabs/UserBasicInfoTab";
 import UserSettingsTab from "./tabs/UserSettingsTab";
 import { UserProfileService } from "@/services/UserProfileService";
+import GuestAccessCard from "@/components/GuestAccessCard";
 
 export default function UserProfile() {
   const { user } = useAuth();
@@ -20,9 +21,19 @@ export default function UserProfile() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Please log in to view your profile</p>
-      </div>
+      <GuestAccessCard
+        icon={<Lock />}
+        title="Akses Profil Terbatas"
+        description="Silakan masuk untuk melihat dan mengelola profil Anda. Nikmati pengalaman yang dipersonalisasi dan keamanan data Anda."
+        features={[
+          "💳 Kelola informasi pribadi Anda",
+          "🔔 Atur preferensi notifikasi",
+          "🛡️ Kontrol privasi akun",
+          "⚡ Akses cepat ke riwayat perjalanan",
+        ]}
+        ctaText="Masuk Sekarang"
+        ctaLink="/auth"
+      />
     );
   }
 
