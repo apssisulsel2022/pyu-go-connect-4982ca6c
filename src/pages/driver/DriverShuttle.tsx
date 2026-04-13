@@ -23,10 +23,30 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import GuestAccessCard from "@/components/GuestAccessCard";
 
 export default function DriverShuttle() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
+
+  if (!authLoading && !user) {
+    return (
+      <GuestAccessCard
+        icon={<Bus />}
+        title="Layanan Shuttle"
+        description="Kelola rute shuttle Anda, terima booking, dan kelola penumpang dengan dashboard terintegrasi."
+        features={[
+          "🗺️ Kelola rute & jadwal shuttle",
+          "👥 Lihat booking penumpang",
+          "📅 Histori perjalanan lengkap",
+          "⭐ Rating & review dari penumpang",
+        ]}
+        ctaText="Daftar Shuttle Driver"
+        ctaLink="/auth"
+      />
+    );
+  }
+
   const [selectedTrip, setSelectedTrip] = useState<any>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingTrip, setPendingTrip] = useState<any>(null);

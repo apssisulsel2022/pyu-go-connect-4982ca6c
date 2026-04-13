@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { useDriverStore } from "@/stores/driverStore";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -7,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
 import { toast } from "sonner";
-import { Phone, MapPin, Navigation } from "lucide-react";
+import { Phone, MapPin, Navigation, Activity } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import shadowUrl from "leaflet/dist/images/marker-shadow.png";
 import { MapCardSkeleton } from "@/components/ui/page-skeleton";
+import GuestAccessCard from "@/components/GuestAccessCard";
 
 L.Icon.Default.mergeOptions({ iconUrl, shadowUrl });
 
@@ -26,8 +28,27 @@ const redIcon = new L.Icon({
 });
 
 export default function DriverActiveRide() {
+  const { user, isLoading: authLoading } = useAuth();
   const { currentRideId, setCurrentRideId, driverId } = useDriverStore();
   const navigate = useNavigate();
+
+  if (!authLoading && !user) {
+    return (
+      <GuestAccessCard
+        icon={<Activity />}
+        title="Perjalanan Aktif"
+        description="Monitor dan kelola perjalanan yang sedang berlangsung. Navigasi real-time dan komunikasi dengan penumpang."
+        features={[
+          "📍 Real-time location tracking",
+          "📞 Chat dengan penumpang",
+          "⏱️ Timer dan distance estimation",
+          "✓ Confirm perjalanan selesai",
+        ]}
+        ctaText="Mulai Berkendara"
+        ctaLink="/auth"
+      />
+    );
+  }
   const queryClient = useQueryClient();
 
   const { data: ride, isLoading } = useQuery({

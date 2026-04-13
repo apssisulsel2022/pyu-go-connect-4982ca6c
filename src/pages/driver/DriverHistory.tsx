@@ -1,12 +1,33 @@
 import { useDriverStore } from "@/stores/driverStore";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, Clock } from "lucide-react";
+import { MapPin, Clock, History } from "lucide-react";
 import { ListPageSkeleton } from "@/components/ui/page-skeleton";
+import GuestAccessCard from "@/components/GuestAccessCard";
 
 export default function DriverHistory() {
+  const { user, isLoading: authLoading } = useAuth();
   const { driverId } = useDriverStore();
+
+  if (!authLoading && !user) {
+    return (
+      <GuestAccessCard
+        icon={<History />}
+        title="Riwayat Perjalanan"
+        description="Lihat semua perjalanan yang telah Anda selesaikan dengan detail lokasi pickup, dropoff, dan rating penumpang."
+        features={[
+          "🗂️ Riwayat lengkap semua perjalanan",
+          "⭐ Rating & review dari penumpang",
+          "📍 Detail lokasi pickup & dropoff",
+          "💰 Lihat earnings per perjalanan",
+        ]}
+        ctaText="Daftar sebagai Driver"
+        ctaLink="/auth"
+      />
+    );
+  }
 
   const { data: rides, isLoading } = useQuery({
     queryKey: ["driver-ride-history", driverId],

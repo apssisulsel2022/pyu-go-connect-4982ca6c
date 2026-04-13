@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Wallet as WalletIcon, Plus, Filter } from "lucide-react";
+import { Wallet as WalletIcon, Plus, Filter, CreditCard, TrendingUp, Lock } from "lucide-react";
 import { TransactionList } from "@/components/wallet/TransactionList";
 import { TopUpDialog } from "@/components/wallet/TopUpDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { WalletPageSkeleton } from "@/components/ui/page-skeleton";
+import GuestAccessCard from "@/components/GuestAccessCard";
 
 export default function Wallet() {
   const { user, isLoading: authLoading } = useAuth();
@@ -16,9 +17,23 @@ export default function Wallet() {
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [filterType, setFilterType] = useState<string>("all");
 
-  useEffect(() => {
-    if (!authLoading && !user) navigate("/auth");
-  }, [authLoading, user, navigate]);
+  if (!authLoading && !user) {
+    return (
+      <GuestAccessCard
+        icon={<CreditCard />}
+        title="Dompet Digital Anda"
+        description="Kelola saldo, transfer uang, dan lacak semua transaksi Anda dengan aman. Nikmati kemudahan pembayaran digital."
+        features={[
+          "💰 Top-up saldo dengan berbagai metode",
+          "📤 Transfer uang ke akun bank",
+          "📊 Lacak riwayat transaksi lengkap",
+          "🔒 Keamanan berlapis untuk setiap transaksi",
+        ]}
+        ctaText="Buka Dompet Saya"
+        ctaLink="/auth"
+      />
+    );
+  }
 
   const { data: wallet, refetch: refetchWallet, isLoading: walletLoading } = useQuery({
     queryKey: ["wallet", user?.id],

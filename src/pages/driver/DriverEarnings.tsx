@@ -1,19 +1,40 @@
 import { useState } from "react";
 import { useDriverStore } from "@/stores/driverStore";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wallet, ArrowDownToLine, Loader2 } from "lucide-react";
+import { Wallet, ArrowDownToLine, Loader2, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { WalletPageSkeleton } from "@/components/ui/page-skeleton";
+import GuestAccessCard from "@/components/GuestAccessCard";
 
 export default function DriverEarnings() {
+  const { user, isLoading: authLoading } = useAuth();
   const { driverId } = useDriverStore();
-  const [period, setPeriod] = useState<"day" | "week" | "month">("day");
   const queryClient = useQueryClient();
+  const [period, setPeriod] = useState<"day" | "week" | "month">("day");
+
+  if (!authLoading && !user) {
+    return (
+      <GuestAccessCard
+        icon={<TrendingUp />}
+        title="Laporan Pendapatan"
+        description="Kelola dan pantau pendapatan dari setiap perjalanan. Analisis performa dan maksimalkan earning potential Anda."
+        features={[
+          "📊 Dashboard pendapatan real-time",
+          "📈 Analisis trend mingguan & bulanan",
+          "💳 Lihat komisi & bonus",
+          "📥 Withdraw ke rekening bank",
+        ]}
+        ctaText="Daftar sebagai Driver"
+        ctaLink="/auth"
+      />
+    );
+  }
 
   const getStartDate = () => {
     const now = new Date();

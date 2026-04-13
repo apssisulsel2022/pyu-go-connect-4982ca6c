@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Can } from "@/hooks/useRBAC";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
-import { Car, DollarSign, Star, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Car, DollarSign, Star, ShieldCheck, ShieldAlert, Gauge } from "lucide-react";
 import { toast } from "sonner";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -19,14 +19,33 @@ import iconUrl from "leaflet/dist/images/marker-icon.png";
 import shadowUrl from "leaflet/dist/images/marker-shadow.png";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DriverPageSkeleton } from "@/components/ui/page-skeleton";
+import GuestAccessCard from "@/components/GuestAccessCard";
 
 L.Icon.Default.mergeOptions({ iconUrl, shadowUrl });
 
 export default function DriverDashboard() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isOnline, setOnline, setDriverId, driverId, currentRideId } = useDriverStore();
+
+  if (!authLoading && !user) {
+    return (
+      <GuestAccessCard
+        icon={<Gauge />}
+        title="Dashboard Driver"
+        description="Pantau perjalanan real-time, kelola pendapatan, dan tingkatkan rating Anda. Mulai hasilkan passive income hari ini!"
+        features={[
+          "📍 Tracking perjalanan real-time",
+          "💵 Monitor pendapatan harian/bulanan",
+          "⭐ Bangun reputasi dengan rating tinggi",
+          "🚗 Kelola armada kendaraan Anda",
+        ]}
+        ctaText="Daftar sebagai Driver"
+        ctaLink="/auth"
+      />
+    );
+  }
 
   const { data: driver, isLoading: driverLoading } = useQuery({
     queryKey: ["driver-profile", user?.id],

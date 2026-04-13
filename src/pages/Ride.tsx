@@ -10,9 +10,11 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { reverseGeocode } from "@/lib/location";
 import { RideRatingDialog } from "@/components/ride/RideRatingDialog";
+import { MapPin, Zap } from "lucide-react";
+import GuestAccessCard from "@/components/GuestAccessCard";
 
 export default function Ride() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const {
     pickup, dropoff, pickupAddress, dropoffAddress,
@@ -35,12 +37,23 @@ export default function Ride() {
     id: d.id, name: d.full_name, lat: d.current_lat, lng: d.current_lng,
   }));
 
-  useEffect(() => {
-    if (!user) {
-      toast.error("Please sign in to book a ride");
-      navigate("/auth");
-    }
-  }, [user, navigate]);
+  if (!authLoading && !user) {
+    return (
+      <GuestAccessCard
+        icon={<MapPin />}
+        title="Pesan Perjalanan"
+        description="Nikmati transportasi aman, nyaman, dan terjangkau. Pesan perjalanan dalam hitungan detik dengan driver profesional terdekat."
+        features={[
+          "🚗 Driver profesional & terverifikasi",
+          "⭐ Rating & review from riders & drivers",
+          "💰 Harga transparan tanpa biaya tersembunyi",
+          "⏱️ Track perjalanan real-time",
+        ]}
+        ctaText="Pesan Perjalanan Sekarang"
+        ctaLink="/auth"
+      />
+    );
+  }
 
   // When both points set, go to service selection (not fare calc yet)
   useEffect(() => {

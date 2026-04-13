@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import {
   Wallet as WalletIcon, Filter, Building2, Plus, Send, Loader2, Trash2, Clock, CheckCircle, XCircle, AlertCircle
 } from "lucide-react";
+import GuestAccessCard from "@/components/GuestAccessCard";
 
 const BANKS = [
   "BCA", "BNI", "BRI", "Mandiri", "CIMB Niaga", "Danamon",
@@ -23,8 +24,26 @@ const BANKS = [
 ];
 
 export default function DriverWallet() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { driverId } = useDriverStore();
+
+  if (!authLoading && !user) {
+    return (
+      <GuestAccessCard
+        icon={<WalletIcon />}
+        title="Dompet Driver"
+        description="Kelola dana dari perjalanan, setup rekening bank, dan withdraw earning Anda dengan aman dan mudah."
+        features={[
+          "💳 Saldo driver otomatis ter-update",
+          "🏦 Withdraw ke berbagai bank",
+          "📋 Riwayat transaksi lengkap",
+          "🔐 Verifikasi rekening terenkripsi",
+        ]}
+        ctaText="Buka Dompet Driver"
+        ctaLink="/auth"
+      />
+    );
+  }
   const queryClient = useQueryClient();
   const [filterType, setFilterType] = useState<string>("all");
   const [bankDialogOpen, setBankDialogOpen] = useState(false);
