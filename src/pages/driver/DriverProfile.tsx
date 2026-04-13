@@ -1,14 +1,17 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader, Truck, Zap, MapPin, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader, Truck, Zap, MapPin, TrendingUp, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import DriverBasicInfoTab from "./tabs/DriverBasicInfoTab";
 import DriverVehiclesTab from "./tabs/DriverVehiclesTab";
 import DriverSettingsTab from "./tabs/DriverSettingsTab";
 import { DriverProfileService } from "@/services/DriverProfileService";
 import GuestAccessCard from "@/components/GuestAccessCard";
+import { toast } from "sonner";
 
 /**
  * Driver Profile Component
@@ -16,7 +19,24 @@ import GuestAccessCard from "@/components/GuestAccessCard";
  */
 export default function DriverProfile() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("basic");
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true);
+      await signOut();
+      toast.success("Berhasil logout");
+      navigate("/");
+    } catch (error) {
+      toast.error("Logout gagal");
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   if (!user) {
     return (
@@ -73,7 +93,19 @@ export default function DriverProfile() {
   return (
     <div className="min-h-screen bg-muted/30 pb-20">
       <div className="max-w-3xl mx-auto px-4 py-6">
-        <h1 className="text-3xl font-bold mb-6">Driver Profile</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold">Driver Profile</h1>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            {loggingOut ? "Logging out..." : "Logout"}
+          </Button>
+        </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">

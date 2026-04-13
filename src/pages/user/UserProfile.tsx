@@ -1,16 +1,36 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader, Lock, Zap, Heart, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader, Lock, Zap, Heart, Shield, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import UserBasicInfoTab from "./tabs/UserBasicInfoTab";
 import UserSettingsTab from "./tabs/UserSettingsTab";
 import { UserProfileService } from "@/services/UserProfileService";
 import GuestAccessCard from "@/components/GuestAccessCard";
+import { toast } from "sonner";
 
 export default function UserProfile() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("basic");
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true);
+      await signOut();
+      toast.success("Berhasil logout");
+      navigate("/");
+    } catch (error) {
+      toast.error("Logout gagal");
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["user-profile", user?.id],
@@ -56,7 +76,19 @@ export default function UserProfile() {
   return (
     <div className="min-h-screen bg-muted/30 pb-20">
       <div className="max-w-2xl mx-auto px-4 py-6">
-        <h1 className="text-3xl font-bold mb-6">My Profile</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold">My Profile</h1>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            {loggingOut ? "Logging out..." : "Logout"}
+          </Button>
+        </div>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
