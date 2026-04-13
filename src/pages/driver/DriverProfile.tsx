@@ -1,25 +1,27 @@
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Loader, Truck, Zap, MapPin, TrendingUp, LogOut } from "lucide-react";
+import { Loader, Truck, Zap, MapPin, TrendingUp, LogOut, FileText } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import DriverBasicInfoTab from "./tabs/DriverBasicInfoTab";
 import DriverVehiclesTab from "./tabs/DriverVehiclesTab";
 import DriverSettingsTab from "./tabs/DriverSettingsTab";
+import { DocumentVerification } from "@/components/driver/profile/DocumentVerification";
 import { DriverProfileService } from "@/services/DriverProfileService";
 import GuestAccessCard from "@/components/GuestAccessCard";
 import { toast } from "sonner";
 
 /**
  * Driver Profile Component
- * Main container for driver profile with three tabs: Basic Info, Vehicles, and Settings
+ * Main container for driver profile with tabs: Basic Info, Vehicles, Settings, and Documents
  */
 export default function DriverProfile() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("basic");
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -36,6 +38,11 @@ export default function DriverProfile() {
     } finally {
       setLoggingOut(false);
     }
+  };
+
+  const handleDocumentUpdate = () => {
+    queryClient.invalidateQueries({ queryKey: ["driver-profile"] });
+    toast.success("Documents updated");
   };
 
   if (!user) {
@@ -108,10 +115,14 @@ export default function DriverProfile() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
             <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
+            <TabsTrigger value="documents" className="flex items-center gap-1">
+              <FileText className="w-4 h-4" />
+              Docs
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="basic" className="space-y-6">
@@ -129,6 +140,13 @@ export default function DriverProfile() {
             <DriverSettingsTab
               settings={data.settings}
               driverId={data.profile.id}
+            />
+          </TabsContent>
+
+          <TabsContent value="documents" className="space-y-6">
+            <DocumentVerification
+              driver={data.profile}
+              onUpdate={handleDocumentUpdate}
             />
           </TabsContent>
         </Tabs>

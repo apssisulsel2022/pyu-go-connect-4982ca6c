@@ -6,11 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { 
   FileText, Upload, CheckCircle2, AlertCircle, Loader2, Eye, ShieldCheck, ShieldAlert, ShieldQuestion
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { DriverProfileService } from "@/services/DriverProfileService";
 import { toast } from "sonner";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_TYPES = ["image/jpeg", "image/png"];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 
 interface DocumentVerificationProps {
   driver: any;
@@ -18,9 +19,25 @@ interface DocumentVerificationProps {
 }
 
 export function DocumentVerification({ driver, onUpdate }: DocumentVerificationProps) {
+  const queryClient = useQueryClient();
   const [uploading, setUploading] = useState<string | null>(null);
 
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'ktp_url' | 'sim_url' | 'vehicle_stnk_url') => {
+  const uploadDocumentMutation = useMutation({
+    mutationFn: async ({ documentType, file, expiry }: { documentType: string; file: File; expiry?: string }) => {
+      return DriverProfileService.uploadDocument(driver.id, documentType, file, expiry);
+    },
+    onSuccess: () => {
+      toast.success("Dokumen berhasil diunggah");
+      queryClient.invalidateQueries({ queryKey: ["driver-profile", driver.user_id] });
+      setUploading(null);
+      onUpdate();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Gagal mengunggah dokumen");
+    },
+  });
+
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: string) => {
     try {
       setUploading(type);
       const file = event.target.files?.[0];
@@ -28,42 +45,19 @@ export function DocumentVerification({ driver, onUpdate }: DocumentVerificationP
 
       // Validate file type
       if (!ALLOWED_TYPES.includes(file.type)) {
-        toast.error("Format file harus JPG atau PNG");
+        toast.error("Format file harus PDF, JPG atau PNG");
         return;
       }
 
       // Validate file size
       if (file.size > MAX_FILE_SIZE) {
-        toast.error("Ukuran file maksimal 5MB");
+        toast.error("Ukuran file maksimal 10MB");
         return;
       }
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${driver.user_id}/${type}-${Math.random()}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('documents')
-        .getPublicUrl(filePath);
-
-      const { error: updateError } = await (supabase
-        .from('drivers') as any)
-        .update({ [type]: publicUrl, updated_at: new Date().toISOString() })
-        .eq('id', driver.id);
-
-      if (updateError) throw updateError;
-
-      toast.success("Dokumen berhasil diunggah");
-      onUpdate();
+      uploadDocumentMutation.mutate({ documentType: type, file });
     } catch (error: any) {
       toast.error("Gagal mengunggah dokumen: " + error.message);
-    } finally {
       setUploading(null);
     }
   };
