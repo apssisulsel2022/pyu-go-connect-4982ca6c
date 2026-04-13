@@ -90,7 +90,7 @@ export default function Index() {
             <h1 className="text-2xl font-extrabold text-primary-foreground">PYU GO</h1>
           </div>
           
-          {user && (
+          {user ? (
             <button 
               onClick={() => navigate("/wallet")}
               className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full text-primary-foreground hover:bg-white/30 transition-all"
@@ -99,6 +99,13 @@ export default function Index() {
               <span className="text-sm font-bold">
                 Rp {(wallet?.balance || 0).toLocaleString("id-ID")}
               </span>
+            </button>
+          ) : (
+            <button 
+              onClick={() => navigate("/auth")}
+              className="px-4 py-1.5 rounded-full bg-primary-foreground/20 backdrop-blur-sm text-primary-foreground hover:bg-primary-foreground/30 transition-all font-medium text-sm"
+            >
+              Sign In
             </button>
           )}
         </div>
