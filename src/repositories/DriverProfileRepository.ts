@@ -9,7 +9,7 @@ export interface DriverProfile {
   email?: string;
   license_number: string;
   sim_expiry_date?: string;
-  gender?: string;
+  gender?: "male" | "female";
   date_of_birth?: string;
   address?: string;
   status: "available" | "busy" | "offline";
@@ -93,12 +93,8 @@ export interface VehicleDocument {
 
 /**
  * Repository for Driver Profile data operations
- * Handles all Supabase queries for driver profile, vehicles, settings, and documents
  */
 export class DriverProfileRepository {
-  /**
-   * Fetch driver profile by user ID
-   */
   static async getProfileByUserId(userId: string): Promise<DriverProfile | null> {
     const { data, error } = await supabase
       .from("drivers")
@@ -107,49 +103,40 @@ export class DriverProfileRepository {
       .maybeSingle();
 
     if (error) throw error;
-    return data;
+    return data as DriverProfile | null;
   }
 
-  /**
-   * Fetch driver settings
-   */
   static async getSettings(driverId: string): Promise<DriverSettings | null> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("driver_settings")
       .select("*")
       .eq("driver_id", driverId)
       .maybeSingle();
 
     if (error) throw error;
-    return data;
+    return data as DriverSettings | null;
   }
 
-  /**
-   * Update driver profile information
-   */
   static async updateProfile(
     driverId: string,
     profile: Partial<DriverProfile>
   ): Promise<DriverProfile> {
     const { data, error } = await supabase
       .from("drivers")
-      .update(profile)
+      .update(profile as any)
       .eq("id", driverId)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as DriverProfile;
   }
 
-  /**
-   * Update driver settings
-   */
   static async updateSettings(
     driverId: string,
     settings: Partial<DriverSettings>
   ): Promise<DriverSettings> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("driver_settings")
       .update(settings)
       .eq("driver_id", driverId)
@@ -157,14 +144,11 @@ export class DriverProfileRepository {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as DriverSettings;
   }
 
-  /**
-   * Initialize default driver settings
-   */
   static async initializeSettings(driverId: string): Promise<DriverSettings> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("driver_settings")
       .insert({
         driver_id: driverId,
@@ -185,12 +169,9 @@ export class DriverProfileRepository {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as DriverSettings;
   }
 
-  /**
-   * Fetch all vehicles for a driver
-   */
   static async getVehicles(driverId: string): Promise<Vehicle[]> {
     const { data, error } = await supabase
       .from("vehicles")
@@ -199,44 +180,35 @@ export class DriverProfileRepository {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as Vehicle[];
   }
 
-  /**
-   * Create a new vehicle
-   */
   static async createVehicle(vehicle: Partial<Vehicle>): Promise<Vehicle> {
     const { data, error } = await supabase
       .from("vehicles")
-      .insert(vehicle)
+      .insert(vehicle as any)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Vehicle;
   }
 
-  /**
-   * Update vehicle information
-   */
   static async updateVehicle(
     vehicleId: string,
     vehicle: Partial<Vehicle>
   ): Promise<Vehicle> {
     const { data, error } = await supabase
       .from("vehicles")
-      .update(vehicle)
+      .update(vehicle as any)
       .eq("id", vehicleId)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Vehicle;
   }
 
-  /**
-   * Delete a vehicle
-   */
   static async deleteVehicle(vehicleId: string): Promise<void> {
     const { error } = await supabase
       .from("vehicles")
@@ -246,9 +218,6 @@ export class DriverProfileRepository {
     if (error) throw error;
   }
 
-  /**
-   * Upload vehicle image
-   */
   static async uploadVehicleImage(vehicleId: string, file: File): Promise<{ url: string }> {
     const fileName = `vehicles/${vehicleId}/${Date.now()}-${file.name}`;
     const { error: uploadError } = await supabase.storage
@@ -261,9 +230,6 @@ export class DriverProfileRepository {
     return { url: data.publicUrl };
   }
 
-  /**
-   * Upload driver document
-   */
   static async uploadDocument(
     driverId: string,
     documentType: string,
@@ -282,7 +248,7 @@ export class DriverProfileRepository {
       .from("driver-documents")
       .getPublicUrl(fileName);
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("driver_documents")
       .upsert({
         driver_id: driverId,
@@ -295,31 +261,25 @@ export class DriverProfileRepository {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as DriverDocument;
   }
 
-  /**
-   * Fetch driver documents
-   */
   static async getDocuments(driverId: string): Promise<DriverDocument[]> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("driver_documents")
       .select("*")
       .eq("driver_id", driverId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as DriverDocument[];
   }
 
-  /**
-   * Fetch document status for a specific type
-   */
   static async getDocumentStatus(
     driverId: string,
     documentType: string
   ): Promise<DriverDocument | null> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("driver_documents")
       .select("*")
       .eq("driver_id", driverId)
@@ -327,12 +287,9 @@ export class DriverProfileRepository {
       .maybeSingle();
 
     if (error) throw error;
-    return data;
+    return data as DriverDocument | null;
   }
 
-  /**
-   * Upload vehicle document
-   */
   static async uploadVehicleDocument(
     vehicleId: string,
     documentType: string,
@@ -351,7 +308,7 @@ export class DriverProfileRepository {
       .from("vehicle-documents")
       .getPublicUrl(fileName);
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("vehicle_documents")
       .upsert({
         vehicle_id: vehicleId,
@@ -364,26 +321,20 @@ export class DriverProfileRepository {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as VehicleDocument;
   }
 
-  /**
-   * Fetch vehicle documents
-   */
   static async getVehicleDocuments(vehicleId: string): Promise<VehicleDocument[]> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("vehicle_documents")
       .select("*")
       .eq("vehicle_id", vehicleId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as VehicleDocument[];
   }
 
-  /**
-   * Upload driver profile photo/avatar
-   */
   static async uploadDriverAvatar(driverId: string, file: File): Promise<{ url: string }> {
     const fileName = `drivers/${driverId}/avatar/${Date.now()}-${file.name}`;
     const { error: uploadError } = await supabase.storage
