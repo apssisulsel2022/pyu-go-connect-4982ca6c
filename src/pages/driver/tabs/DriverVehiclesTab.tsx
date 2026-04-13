@@ -42,8 +42,8 @@ export default function DriverVehiclesTab({
       vehicle_type: "car",
       model: "",
       color: "",
-      capacity: "4",
-      year: new Date().getFullYear().toString(),
+      capacity: 4,
+      year: new Date().getFullYear(),
     },
   });
 
@@ -53,8 +53,8 @@ export default function DriverVehiclesTab({
       vehicle_type: "car",
       model: "",
       color: "",
-      capacity: "4",
-      year: new Date().getFullYear().toString(),
+      capacity: 4,
+      year: new Date().getFullYear(),
     },
   });
 

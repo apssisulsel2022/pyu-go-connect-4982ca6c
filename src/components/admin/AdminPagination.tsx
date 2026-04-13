@@ -71,11 +71,11 @@ export function AdminPagination({ currentPage, totalPages, onPageChange }: Admin
             <PaginationEllipsis />
           </PaginationItem>
         );
-      } else if (currentPage === 4) {
-        pages.push(
-            <PaginationItem key={3}>
-              <PaginationLink
-                isActive={currentPage === 3}
+    } else if (currentPage === 4) {
+      pages.push(
+          <PaginationItem key={3}>
+            <PaginationLink
+              isActive={false}
                 onClick={(e) => {
                   e.preventDefault();
                   onPageChange(3);
