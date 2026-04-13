@@ -1,44 +1,46 @@
 
 
-# Titik Jemput Tidak Muncul — Analisis & Solusi
+# Review & Refinement: Shuttle Pickup Flow
 
-## Masalah
+## Issues Found
 
-Dari data network request, ketika memilih rute **"HERMES - KNO AIRPORT"** (id: `f98144db`), query `shuttle_rayons` mengembalikan `[]` (kosong). Tidak ada rayon yang terhubung ke rute tersebut, sehingga langkah "Titik Jemput" dilewati langsung ke "Pilih Kursi".
+### 1. Inefficient Query — Fetches ALL pickup points
+In `Shuttle.tsx` line 122, the rayons query fetches **all** active pickup points globally, then filters client-side. With many routes and points, this wastes bandwidth.
 
-Rute lain (Medan Kota, Medan Petisah, dll) sudah memiliki rayon dan titik jemput.
+**Fix**: Filter pickup points by the rayon IDs returned in the same query.
 
-## Solusi
+### 2. Distance "0m" display is confusing
+In `PickupSelector.tsx`, points with `distance_meters: 0` show "0m" which looks broken. The first stop in each rayon always has 0 distance.
 
-Tambahkan rayon dan titik jemput untuk rute HERMES via **database migration**:
+**Fix**: Hide distance display when `distance_meters === 0`.
 
-### 1. Migration: Insert rayon untuk rute HERMES
+### 3. Missing departure_time display
+Hermes route pickup points have `departure_time: null`. The UI shows empty string before "WIB" label, resulting in " WIB" with no time.
 
-```sql
-INSERT INTO shuttle_rayons (id, route_id, name, description, active)
-VALUES (
-  gen_random_uuid(),
-  'f98144db-c3a0-474e-98c2-fd94109986de',
-  'Rayon Hermes',
-  'Titik jemput area Hermes Palace',
-  true
-);
-```
+**Fix**: Only show departure_time line if it exists, and hide "WIB" suffix when no time.
 
-### 2. Migration: Insert pickup points untuk rayon baru tersebut
+### 4. Step indicator missing
+Users have no visual progress indicator showing where they are in the 10-step flow.
 
-Contoh titik jemput:
-- Hermes Palace (stop 1)
-- Titik jemput lainnya sesuai kebutuhan
+**Fix**: Add a compact step progress bar below the header.
 
-Dengan rayon dan pickup points yang terhubung ke rute HERMES, langkah "Titik Jemput" akan otomatis muncul saat user memilih jadwal di rute tersebut.
+---
 
-### Tidak Ada Perubahan Kode
+## Changes
 
-Kode di `Shuttle.tsx` dan `PickupSelector.tsx` sudah benar — hanya data rayon yang belum ada untuk rute HERMES.
+### `src/pages/Shuttle.tsx`
+- Optimize rayons query: pass rayon IDs to filter pickup points server-side using `.in("rayon_id", rayonIds)`
+- Add a step progress indicator component showing current step (1-10)
 
-| Aksi | Detail |
+### `src/components/shuttle/PickupSelector.tsx`
+- Hide distance when `distance_meters === 0`
+- Only show departure_time text when it has a value
+- Improve empty-time fallback display
+
+No database changes required.
+
+| File | Change |
 |------|--------|
-| Database migration | Insert rayon + pickup points untuk rute HERMES |
-| Kode | Tidak ada perubahan |
+| `src/pages/Shuttle.tsx` | Optimize pickup query, add step indicator |
+| `src/components/shuttle/PickupSelector.tsx` | Fix distance/time display edge cases |
 
