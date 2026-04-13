@@ -646,6 +646,7 @@ export default function Shuttle() {
                   totalFare={totalFare}
                   paymentStatus={paymentStatus}
                   pickupPointName={selectedPickupPoint?.name}
+                  dropoffPointName={selectedDropoffPoint?.name}
                 />
                 <Button variant="outline" className="w-full" onClick={handleReset}>Pesan Lagi</Button>
               </div>
@@ -677,11 +678,24 @@ export default function Shuttle() {
                         {format(new Date(b.shuttle_schedules?.departure_time), "dd MMM yyyy, HH:mm")}
                       </p>
                       {b.shuttle_pickup_points?.name && (
-                        <p className="text-xs text-muted-foreground mt-1">📍 {b.shuttle_pickup_points.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">📍 Jemput: {b.shuttle_pickup_points.name}</p>
                       )}
                       {b.shuttle_booking_seats && b.shuttle_booking_seats.length > 0 && (
                         <p className="text-[10px] text-muted-foreground mt-0.5">
                           Kursi: {b.shuttle_booking_seats.map((s: any) => s.shuttle_seats?.seat_number).join(", ")}
+                        </p>
+                      )}
+                      {b.pickup_status && (
+                        <Badge 
+                          variant={b.pickup_status === "picked_up" ? "default" : b.pickup_status === "delivered" ? "secondary" : "outline"} 
+                          className="text-[10px] mt-1"
+                        >
+                          {b.pickup_status === "pending" ? "Menunggu jemput" : b.pickup_status === "picked_up" ? "Dijemput" : b.pickup_status === "delivered" ? "Tiba" : b.pickup_status}
+                        </Badge>
+                      )}
+                      {b.pickup_driver_name && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          🚗 {b.pickup_driver_name} • {b.pickup_driver_plate}
                         </p>
                       )}
                     </div>
