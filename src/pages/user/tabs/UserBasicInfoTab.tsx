@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,19 @@ export default function UserBasicInfoTab({ profile, userId }: UserBasicInfoTabPr
       id_number: profile.id_number || "",
     },
   });
+
+  // Sync form when profile data changes
+  useEffect(() => {
+    form.reset({
+      full_name: profile.full_name || "",
+      phone: profile.phone || "",
+      gender: profile.gender || "",
+      date_of_birth: profile.date_of_birth || "",
+      address: profile.address || "",
+      city: profile.city || "",
+      id_number: profile.id_number || "",
+    });
+  }, [profile, form]);
 
   const updateProfileMutation = useMutation({
     mutationFn: (data: Partial<UserProfile>) =>
@@ -178,9 +191,8 @@ export default function UserBasicInfoTab({ profile, userId }: UserBasicInfoTabPr
                 <Select
                   value={form.watch("gender")}
                   onValueChange={(value) => form.setValue("gender", value)}
-                  disabled={!isEditing}
                 >
-                  <SelectTrigger className="mt-1">
+                  <SelectTrigger className="mt-1" disabled={!isEditing}>
                     <SelectValue placeholder="Select gender" />
                   </SelectTrigger>
                   <SelectContent>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,26 @@ export default function UserSettingsTab({ settings, userId }: UserSettingsTabPro
       confirmPassword: "",
     },
   });
+
+  // Sync form when settings data changes
+  useEffect(() => {
+    if (settings) {
+      form.reset({
+        language: settings.language || "en",
+        currency: settings.currency || "IDR",
+        theme: settings.theme || "light",
+        notification_email: settings.notification_email ?? true,
+        notification_push: settings.notification_push ?? true,
+        notification_sms: settings.notification_sms ?? false,
+        notification_promotions: settings.notification_promotions ?? true,
+        notification_ride_updates: settings.notification_ride_updates ?? true,
+        privacy_show_profile: settings.privacy_show_profile ?? true,
+        privacy_show_location: settings.privacy_show_location ?? false,
+        two_factor_enabled: settings.two_factor_enabled ?? false,
+        data_sharing_analytics: settings.data_sharing_analytics ?? true,
+      });
+    }
+  }, [settings, form]);
 
   const updateSettingsMutation = useMutation({
     mutationFn: (data: Partial<UserSettings>) =>

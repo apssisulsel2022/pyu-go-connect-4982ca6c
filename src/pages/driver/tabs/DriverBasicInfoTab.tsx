@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,21 @@ export default function DriverBasicInfoTab({ profile, driverId }: DriverBasicInf
       emergency_contact_phone: profile.emergency_contact_phone || "",
     },
   });
+
+  // Sync form when profile data changes
+  useEffect(() => {
+    form.reset({
+      full_name: profile.full_name || "",
+      license_number: profile.license_number || "",
+      sim_expiry_date: profile.sim_expiry_date || "",
+      phone: profile.phone || "",
+      gender: profile.gender || "",
+      date_of_birth: profile.date_of_birth || "",
+      address: profile.address || "",
+      emergency_contact_name: profile.emergency_contact_name || "",
+      emergency_contact_phone: profile.emergency_contact_phone || "",
+    });
+  }, [profile, form]);
 
   const updateProfileMutation = useMutation({
     mutationFn: (data: Partial<DriverProfile>) =>
@@ -176,9 +191,8 @@ export default function DriverBasicInfoTab({ profile, driverId }: DriverBasicInf
                 <Select
                   value={form.watch("gender")}
                   onValueChange={(value) => form.setValue("gender", value)}
-                  disabled={!isEditing}
                 >
-                  <SelectTrigger className="mt-1">
+                  <SelectTrigger className="mt-1" disabled={!isEditing}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

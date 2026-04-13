@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,27 @@ export default function DriverSettingsTab({
       preferred_payment_method: settings?.preferred_payment_method || "cash",
     },
   });
+
+  // Sync form when settings data changes
+  useEffect(() => {
+    if (settings) {
+      form.reset({
+        working_hours_enabled: settings.working_hours_enabled ?? false,
+        working_hours_start: settings.working_hours_start || "08:00",
+        working_hours_end: settings.working_hours_end || "20:00",
+        available_monday: settings.available_monday ?? false,
+        available_tuesday: settings.available_tuesday ?? false,
+        available_wednesday: settings.available_wednesday ?? false,
+        available_thursday: settings.available_thursday ?? false,
+        available_friday: settings.available_friday ?? false,
+        available_saturday: settings.available_saturday ?? false,
+        available_sunday: settings.available_sunday ?? false,
+        service_area_radius_km: settings.service_area_radius_km ?? 50,
+        auto_accept_rides: settings.auto_accept_rides ?? false,
+        preferred_payment_method: settings.preferred_payment_method || "cash",
+      });
+    }
+  }, [settings, form]);
 
   const updateSettingsMutation = useMutation({
     mutationFn: (data: Partial<DriverSettings>) =>
