@@ -243,8 +243,7 @@ export default function EmailTemplateEditor() {
                       </div>
                     )}
                     <p className="text-xs text-slate-500">
-                      Available variables: {"{"}{"{"}}full_name{"}"}{"}"}, {"{"}{"{"}}verification_code{"}"}{"}"},
-                      etc.
+                      Available variables: {'{{full_name}}'}, {'{{verification_code}}'}, etc.
                     </p>
                   </div>
 
@@ -383,9 +382,7 @@ export default function EmailTemplateEditor() {
       <Card className="bg-blue-50 border-blue-200">
         <CardContent className="pt-6">
           <p className="text-sm text-blue-900">
-            <strong>💡 Tips:</strong> Gunakan variabel seperti {"{"}{"{"}}full_name{"}"}{"}"}, {"{"}{"{"}}verification_code{"}"}{"}"},
-            {"{"}{"{"}}reset_link{"}"}{"}{"}"} dalam template. Variabel ini akan otomatis diganti dengan nilai nyata saat email
-            dikirim.
+            <strong>💡 Tips:</strong> Gunakan variabel seperti {'{{full_name}}'}, {'{{verification_code}}'}, {'{{reset_link}}'} dalam template. Variabel ini akan otomatis diganti dengan nilai nyata saat email dikirim.
           </p>
         </CardContent>
       </Card>
