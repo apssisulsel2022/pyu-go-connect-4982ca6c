@@ -96,6 +96,11 @@ export default function BookingsTab() {
                     <p className="font-mono font-bold text-xs text-primary">{b.booking_ref}</p>
                     <p className="text-xs text-muted-foreground font-medium">{b.guest_name} • {b.seat_count} kursi</p>
                     <p className="text-xs text-muted-foreground">{route?.name ?? "-"}</p>
+                    {b.shuttle_schedules?.departure_time && (
+                      <p className="text-xs text-primary font-semibold">
+                        🚐 {format(new Date(b.shuttle_schedules.departure_time), "dd MMM yyyy, HH:mm")}
+                      </p>
+                    )}
                     {b.shuttle_pickup_points ? (
                       <p className="text-xs text-muted-foreground">
                         📍 {b.shuttle_pickup_points.name} ({b.shuttle_pickup_points.rayon?.name})
