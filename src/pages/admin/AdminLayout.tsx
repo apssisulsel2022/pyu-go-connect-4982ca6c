@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { Outlet, NavLink } from "react-router-dom";
 import { LayoutDashboard, Car, Bus, Users, UserCog, CreditCard, Building2, Settings, Mail, ArrowLeft, Send, LogOut, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
+import { useSessionManager } from "@/hooks/useSessionManager";
 import { toast } from "sonner";
 
 const adminNav = [
@@ -22,16 +22,14 @@ const adminNav = [
 ];
 
 export default function AdminLayout() {
-  const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { logout: sessionLogout } = useSessionManager({ autoInitialize: false });
   const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
     try {
       setLoggingOut(true);
-      await signOut();
-      toast.success("Berhasil logout");
-      navigate("/");
+      // Use sessionLogout for proper logout flow with session cleanup
+      await sessionLogout();
     } catch (error) {
       toast.error("Logout gagal");
     } finally {

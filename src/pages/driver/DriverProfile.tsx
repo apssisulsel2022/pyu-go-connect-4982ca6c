@@ -1,11 +1,11 @@
 
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Loader, Truck, Zap, MapPin, TrendingUp, LogOut, FileText } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useSessionManager } from "@/hooks/useSessionManager";
 import DriverBasicInfoTab from "./tabs/DriverBasicInfoTab";
 import DriverVehiclesTab from "./tabs/DriverVehiclesTab";
 import DriverSettingsTab from "./tabs/DriverSettingsTab";
@@ -20,19 +20,18 @@ import { toast } from "sonner";
  */
 export default function DriverProfile() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("basic");
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const { signOut } = useAuth();
+  // Use useSessionManager for proper logout flow
+  const { logout: sessionLogout } = useSessionManager({ autoInitialize: false });
 
   const handleLogout = async () => {
     try {
       setLoggingOut(true);
-      await signOut();
-      toast.success("Berhasil logout");
-      navigate("/");
+      // sessionLogout already handles navigation to /auth
+      await sessionLogout();
     } catch (error) {
       toast.error("Logout gagal");
     } finally {
