@@ -20,9 +20,16 @@ export default function DriverAuth() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ Redirect after successful driver login
+  // ✅ Check session on initial mount and redirect if already authenticated as driver
   useEffect(() => {
-    if (user && role === "moderator" && !isLoading) {
+    if (isLoading) {
+      // Still checking session, don't redirect yet
+      return;
+    }
+
+    // Session check complete
+    if (user && role === "moderator") {
+      console.log("[DriverAuth] Active driver session detected - redirecting to driver dashboard", { user: user.email, role });
       const from = location.state?.from?.pathname;
       
       // Redirect back to original driver page if available
