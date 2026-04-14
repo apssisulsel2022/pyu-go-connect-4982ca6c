@@ -1760,25 +1760,31 @@ export type Database = {
       }
       shuttle_service_types: {
         Row: {
+          active: boolean
           baggage_info: string
           created_at: string
           description: string | null
           id: string
           name: Database["public"]["Enums"]["shuttle_service_category"]
+          updated_at: string
         }
         Insert: {
+          active?: boolean
           baggage_info: string
           created_at?: string
           description?: string | null
           id?: string
           name: Database["public"]["Enums"]["shuttle_service_category"]
+          updated_at?: string
         }
         Update: {
+          active?: boolean
           baggage_info?: string
           created_at?: string
           description?: string | null
           id?: string
           name?: Database["public"]["Enums"]["shuttle_service_category"]
+          updated_at?: string
         }
         Relationships: []
       }

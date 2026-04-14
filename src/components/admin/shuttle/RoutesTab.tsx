@@ -104,13 +104,15 @@ function ScheduleForm({ schedule, routeId, onClose }: { schedule?: any; routeId:
     queryKey: ["shuttle-service-types"],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.from("shuttle_service_types").select("*").eq("active", true).order("name");
+        const { data, error } = await supabase.from("shuttle_service_types").select("*").order("name");
         if (error) {
           console.error("Service types query error:", error);
           throw error;
         }
-        console.log("Service types loaded:", data);
-        return data;
+        // Filter to only active service types
+        const activeTypes = data?.filter((st: any) => st.active) || [];
+        console.log("Service types loaded:", activeTypes);
+        return activeTypes;
       } catch (err) {
         console.error("Service types fetch exception:", err);
         throw err;
