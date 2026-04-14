@@ -42,7 +42,29 @@ export function useAuth() {
     const initializeAuth = async () => {
       try {
         // Attempt to recover session from URL (after OAuth redirect)
-        const { data: { session: urlSession } } = await supabase.auth.getSession();
+        const { data: { session: urlSession }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error("Error getting session:", sessionError);
+          if (mounted) {
+            setSession(null);
+            setRole(null);
+            setLoading(false);
+          }
+          return;
+        }
+
+        // Validate that session has both access and refresh tokens
+        if (urlSession && (!urlSession.access_token || !urlSession.refresh_token)) {
+          console.warn("Session missing tokens, clearing invalid session");
+          await supabase.auth.signOut();
+          if (mounted) {
+            setSession(null);
+            setRole(null);
+            setLoading(false);
+          }
+          return;
+        }
         
         if (mounted) {
           setSession(urlSession);
@@ -56,6 +78,8 @@ export function useAuth() {
       } catch (err) {
         console.error("Failed to initialize auth:", err);
         if (mounted) {
+          setSession(null);
+          setRole(null);
           setLoading(false);
         }
       }
@@ -66,15 +90,23 @@ export function useAuth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, sessionData) => {
       if (!mounted) return;
 
-      if (event === "SIGNED_OUT") {
+      if (event === "SIGNED_OUT" || event === "TOKEN_REFRESHED_ERROR") {
         setSession(null);
         setRole(null);
       } else if (sessionData) {
-        setSession(sessionData);
-        try {
-          await fetchUserRole(sessionData.user.id);
-        } catch (err) {
-          console.error("Failed to fetch role on auth state change:", err);
+        // Validate session has required tokens before setting
+        if (sessionData.access_token && sessionData.refresh_token) {
+          setSession(sessionData);
+          try {
+            await fetchUserRole(sessionData.user.id);
+          } catch (err) {
+            console.error("Failed to fetch role on auth state change:", err);
+          }
+        } else {
+          console.warn("Session missing tokens on state change, signing out");
+          await supabase.auth.signOut();
+          setSession(null);
+          setRole(null);
         }
       }
       
@@ -85,10 +117,21 @@ export function useAuth() {
     const refreshInterval = setInterval(async () => {
       try {
         const { data: { session: currentSession }, error } = await supabase.auth.refreshSession();
+        
         if (error) {
+          console.warn("Token refresh failed:", error.message);
           handleAuthError(error);
+          return;
+        }
+
+        // Validate refreshed session has tokens
+        if (currentSession && (!currentSession.access_token || !currentSession.refresh_token)) {
+          console.warn("Refreshed session missing tokens");
+          await supabase.auth.signOut();
+          handleAuthError(new Error("Session missing tokens after refresh"));
         }
       } catch (err) {
+        console.error("Error in token refresh interval:", err);
         handleAuthError(err);
       }
     }, 1000 * 60 * 50); // Refresh every 50 minutes
