@@ -456,8 +456,9 @@ function AddVehicleDialog({ routeId, serviceId, onClose, isOpen }: { routeId: st
         route_id: routeId,
         service_id: serviceId,
         vehicle_type: vehicleType,
+        vehicle_name: vehicleType,
         capacity,
-        facilities,
+        facilities: facilities ? facilities.split(",").map((f) => f.trim()) : [],
         active: true,
       });
 
@@ -548,17 +549,36 @@ function AddScheduleDialog({ routeId, serviceId, vehicleId, onClose, isOpen }: {
 
     setSaving(true);
     try {
-      const { error } = await supabase.from("shuttle_schedules").insert({
-        route_id: routeId,
-        service_id: serviceId,
-        vehicle_id: vehicleId,
-        departure_time: departureTime,
-        arrival_time: arrivalTime,
-        available_seats: availableSeats,
-        active: true,
-      });
+      // Insert schedule with service_id
+      const { data: scheduleData, error: scheduleErr } = await supabase
+        .from("shuttle_schedules")
+        .insert({
+          route_id: routeId,
+          service_id: serviceId,
+          departure_time: departureTime,
+          arrival_time: arrivalTime,
+          total_seats: availableSeats,
+          available_seats: availableSeats,
+          active: true,
+        })
+        .select("id")
+        .single();
 
-      if (error) throw error;
+      if (scheduleErr) throw scheduleErr;
+
+      // Insert into shuttle_schedule_services to link service to schedule
+      const { error: serviceErr } = await supabase
+        .from("shuttle_schedule_services")
+        .insert({
+          schedule_id: scheduleData.id,
+          service_type_id: serviceId,
+          vehicle_type: "standard",
+          total_seats: availableSeats,
+          available_seats: availableSeats,
+          active: true,
+        });
+
+      if (serviceErr) throw serviceErr;
 
       toast.success("Jadwal berhasil ditambahkan");
       qc.invalidateQueries({ queryKey: ["admin-route-schedules", routeId] });
