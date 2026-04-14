@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, NavLink } from "react-router-dom";
+import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { LayoutDashboard, Car, Bus, Users, UserCog, CreditCard, Building2, Settings, Mail, ArrowLeft, Send, LogOut, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ const adminNav = [
 ];
 
 export default function AdminLayout() {
+  const navigate = useNavigate();
   const { logout: sessionLogout } = useSessionManager({ autoInitialize: false });
   const [loggingOut, setLoggingOut] = useState(false);
 
