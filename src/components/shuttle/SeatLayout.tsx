@@ -18,17 +18,21 @@ interface SeatItemProps {
   absoluteStyles?: React.CSSProperties;
   seatClass?: string;
   status: SeatStatus;
-  onClick: () => void;
+  onClick: (seatNumber: string) => void;
 }
 
 const SeatItem = memo(({ seatNumber, isDriver, absoluteStyles, seatClass, status, onClick }: SeatItemProps) => {
+  const handleClick = useCallback(() => {
+    onClick(seatNumber);
+  }, [onClick, seatNumber]);
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           type="button"
           disabled={status === "booked" || status === "reserved" || status === "driver"}
-          onClick={onClick}
+          onClick={handleClick}
           className={cn(
             "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex flex-col items-center justify-center transition-all duration-200 border-2 relative",
             status === "available" && "bg-background border-muted hover:border-primary hover:bg-primary/5",
@@ -56,6 +60,15 @@ const SeatItem = memo(({ seatNumber, isDriver, absoluteStyles, seatClass, status
         </p>
       </TooltipContent>
     </Tooltip>
+  );
+}, (prev, next) => {
+  return (
+    prev.seatNumber === next.seatNumber &&
+    prev.isDriver === next.isDriver &&
+    prev.seatClass === next.seatClass &&
+    prev.status === next.status &&
+    prev.onClick === next.onClick &&
+    JSON.stringify(prev.absoluteStyles) === JSON.stringify(next.absoluteStyles)
   );
 });
 
@@ -102,7 +115,7 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats, la
         absoluteStyles={absoluteStyles}
         seatClass={seatClass}
         status={status}
-        onClick={() => handleItemClick(seatNumber)}
+        onClick={handleItemClick}
       />
     );
   };
