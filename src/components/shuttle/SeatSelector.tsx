@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { SeatLayout, SeatInfo } from "./SeatLayout";
 import { format } from "date-fns";
 import { MapPin } from "lucide-react";
+import { VehicleLayout } from "@/services/ShuttleLayoutService";
 
 interface SeatSelectorProps {
   selectedRoute: any;
@@ -16,6 +17,7 @@ interface SeatSelectorProps {
   onSeatClick: (seat: any) => void;
   onConfirmSeats: () => void;
   onBack: () => void;
+  layoutData?: VehicleLayout | null;
 }
 
 export function SeatSelector({
@@ -28,7 +30,8 @@ export function SeatSelector({
   totalFare,
   onSeatClick,
   onConfirmSeats,
-  onBack
+  onBack,
+  layoutData
 }: SeatSelectorProps) {
   const farePerSeat = selectedSeats.length > 0 ? Math.round(totalFare / selectedSeats.length) : 0;
   
@@ -60,6 +63,7 @@ export function SeatSelector({
             seats={scheduleSeats || []}
             selectedSeats={selectedSeats}
             onSeatSelect={onSeatClick}
+            layoutData={layoutData}
           />
         </CardContent>
       </Card>

@@ -185,6 +185,42 @@ export const useShuttleBooking = () => {
     enabled: !!booking.scheduleId,
   });
 
+  const { data: vehicleLayout } = useQuery({
+    queryKey: ['shuttle-vehicle-layout', booking.scheduleId, booking.vehicleType],
+    queryFn: async () => {
+      if (!booking.scheduleId && !booking.vehicleType) return null;
+      
+      // First try to get layout_id from schedule
+      if (booking.scheduleId) {
+        const { data: schedule } = await (supabase.from('shuttle_schedules') as any)
+          .select('layout_id')
+          .eq('id' as any, booking.scheduleId)
+          .single();
+        
+        if (schedule?.layout_id) {
+          const { data: layout } = await (supabase as any).from('shuttle_vehicle_layouts')
+            .select('*')
+            .eq('id', schedule.layout_id)
+            .single();
+          if (layout) return layout;
+        }
+      }
+
+      // Fallback to active layout for vehicle type
+      if (booking.vehicleType) {
+        const { data: layout } = await (supabase as any).from('shuttle_vehicle_layouts')
+          .select('*')
+          .eq('vehicle_type', booking.vehicleType)
+          .eq('is_active', true)
+          .maybeSingle();
+        return layout;
+      }
+
+      return null;
+    },
+    enabled: !!booking.scheduleId || !!booking.vehicleType,
+  });
+
   const { data: userBookings } = useQuery({
     queryKey: ['user-shuttle-bookings', user?.id],
     queryFn: async () => {
@@ -349,6 +385,7 @@ export const useShuttleBooking = () => {
     schedulesLoading,
     scheduleSeats,
     seatsLoading,
+    vehicleLayout,
     userBookings,
     // Derived
     selectedRoute,

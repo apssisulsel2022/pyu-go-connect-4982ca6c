@@ -386,24 +386,37 @@ function AddServiceDialog({ routeId, onClose, isOpen }: { routeId: string; onClo
 
 function AddVehicleDialog({ routeId, serviceId, onClose, isOpen }: { routeId: string; serviceId: string; onClose: () => void; isOpen: boolean }) {
   const qc = useQueryClient();
-  const [vehicleType, setVehicleType] = useState("");
+  const [vehicleType, setVehicleType] = useState<"MINI_CAR" | "SUV" | "HIACE" | "">("");
   const [capacity, setCapacity] = useState(0);
   const [facilities, setFacilities] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Auto set capacity based on vehicle type
+  useEffect(() => {
+    if (vehicleType === "MINI_CAR") setCapacity(4);
+    else if (vehicleType === "SUV") setCapacity(7);
+    else if (vehicleType === "HIACE") setCapacity(10);
+  }, [vehicleType]);
+
   const handleSave = async () => {
-    if (!vehicleType.trim() || capacity <= 0) {
+    if (!vehicleType || capacity <= 0) {
       toast.error("Tipe kendaraan dan kapasitas wajib diisi");
       return;
     }
 
     setSaving(true);
     try {
+      const vehicleNames = {
+        "MINI_CAR": "Mini Car",
+        "SUV": "SUV Premium",
+        "HIACE": "Hiace Executive"
+      };
+
       const { error } = await (supabase.from("shuttle_service_vehicle_types") as any).insert({
         route_id: routeId,
         service_id: serviceId,
         vehicle_type: vehicleType,
-        vehicle_name: vehicleType,
+        vehicle_name: vehicleNames[vehicleType as keyof typeof vehicleNames],
         capacity,
         facilities: facilities ? facilities.split(",").map((f) => f.trim()) : [],
         active: true,
@@ -435,11 +448,16 @@ function AddVehicleDialog({ routeId, serviceId, onClose, isOpen }: { routeId: st
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Tipe Kendaraan *</Label>
-            <Input
-              value={vehicleType}
-              onChange={(e) => setVehicleType(e.target.value)}
-              placeholder="Contoh: Avanza, Alphard, Bus Medium"
-            />
+            <Select value={vehicleType} onValueChange={(val: any) => setVehicleType(val)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih tipe kendaraan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="MINI_CAR">Mini Car (4 Kursi)</SelectItem>
+                <SelectItem value="SUV">SUV (7 Kursi)</SelectItem>
+                <SelectItem value="HIACE">Hiace (10-14 Kursi)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
@@ -1227,7 +1245,10 @@ export default function IntegratedShuttleManagement() {
                           <CardContent className="pt-4">
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex-1">
-                                <h4 className="font-semibold">{vehicle.vehicle_type}</h4>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-semibold">{vehicle.vehicle_type}</h4>
+                                  <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-none">STANDAR</Badge>
+                                </div>
                                 <p className="text-xs text-muted-foreground">
                                   Kapasitas: {vehicle.capacity} penumpang
                                 </p>

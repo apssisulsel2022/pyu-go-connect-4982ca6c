@@ -9,7 +9,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { format, isSameDay } from "date-fns";
-import { id as localeId } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import ShuttleTicket from "@/components/shuttle/ShuttleTicket";
@@ -42,9 +41,9 @@ const generateUUID = (): string => {
 };
 
 const vehicleDetails = {
+  "MINI_CAR": { name: "Mini Car", capacity: 4, facilities: ["AC", "Compact"], icon: <Bus className="w-10 h-10" /> },
   "SUV": { name: "SUV Premium", capacity: 7, facilities: ["AC", "Audio", "Charger"], icon: <Bus className="w-10 h-10" /> },
-  "MiniCar": { name: "Mini Car", capacity: 4, facilities: ["AC", "Compact"], icon: <Bus className="w-10 h-10" /> },
-  "Hiace": { name: "Hiace Executive", capacity: 10, facilities: ["AC", "Reclining Seat", "TV", "Charger"], icon: <Bus className="w-10 h-10" /> },
+  "HIACE": { name: "Hiace Executive", capacity: 10, facilities: ["AC", "Reclining Seat", "TV", "Charger"], icon: <Bus className="w-10 h-10" /> },
 };
 
 export default function Shuttle() {
@@ -168,6 +167,42 @@ export default function Shuttle() {
     enabled: !!selectedScheduleId,
   });
 
+  const { data: vehicleLayout } = useQuery({
+    queryKey: ['shuttle-vehicle-layout', selectedScheduleId, selectedVehicleType],
+    queryFn: async () => {
+      if (!selectedScheduleId && !selectedVehicleType) return null;
+      
+      // First try to get layout_id from schedule
+      if (selectedScheduleId) {
+        const { data: schedule } = await (supabase.from('shuttle_schedules') as any)
+          .select('layout_id')
+          .eq('id' as any, selectedScheduleId)
+          .single();
+        
+        if (schedule?.layout_id) {
+          const { data: layout } = await (supabase as any).from('shuttle_vehicle_layouts')
+            .select('*')
+            .eq('id', schedule.layout_id)
+            .single();
+          if (layout) return layout;
+        }
+      }
+
+      // Fallback to active layout for vehicle type
+      if (selectedVehicleType) {
+        const { data: layout } = await (supabase as any).from('shuttle_vehicle_layouts')
+          .select('*')
+          .eq('vehicle_type', selectedVehicleType)
+          .eq('is_active', true)
+          .maybeSingle();
+        return layout;
+      }
+
+      return null;
+    },
+    enabled: !!selectedScheduleId || !!selectedVehicleType,
+  });
+
   useEffect(() => {
     if (!selectedScheduleId) return;
 
@@ -248,7 +283,7 @@ export default function Shuttle() {
     return () => clearInterval(interval);
   }, [lockedUntil]);
 
-  const selectedRoute = routes?.find((r) => r.id === selectedRouteId);
+  const selectedRoute = routes?.find((r: any) => r.id === selectedRouteId);
   const selectedSchedule = selectedRoute?.schedules.find((s: any) => s.id === selectedScheduleId);
   
   // Extract available dates from all future schedules
@@ -258,7 +293,7 @@ export default function Shuttle() {
       const d = new Date(s.departure_time);
       return new Date(d.getFullYear(), d.getMonth(), d.getDate());
     })
-    .filter((date, idx, arr) => idx === arr.findIndex((d: Date) => isSameDay(d, date))) ?? [];
+    .filter((date: Date, idx: number, arr: Date[]) => idx === arr.findIndex((d: Date) => isSameDay(d, date))) ?? [];
 
   // Filter schedules for current route and selected date
   const filteredSchedules = selectedRoute?.schedules.filter((s: any) => {
@@ -534,7 +569,7 @@ export default function Shuttle() {
           <TabsContent value="booking" className="space-y-4">
             {step !== "confirmation" && (() => {
               const steps: Step[] = ["routes", "date", "schedule", "service", "vehicle", "pickup", "seats", "guest_info", "payment", "confirmation"];
-              const currentIdx = steps.indexOf(step);
+              const currentIdx = steps.indexOf(step as Step);
               const progress = ((currentIdx + 1) / steps.length) * 100;
               return (
                 <div className="space-y-1">
@@ -620,6 +655,7 @@ export default function Shuttle() {
                 onSeatClick={handleSeatClick}
                 onConfirmSeats={handleConfirmSeats}
                 onBack={goBack}
+                layoutData={vehicleLayout}
               />
             )}
 

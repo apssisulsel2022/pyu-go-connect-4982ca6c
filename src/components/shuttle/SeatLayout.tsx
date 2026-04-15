@@ -1,7 +1,8 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { Armchair, Info } from "lucide-react";
+import { Armchair, Info, User, Luggage } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { VehicleLayout } from "@/services/ShuttleLayoutService";
 
 export type SeatStatus = "available" | "reserved" | "booked" | "selected" | "driver";
 
@@ -12,10 +13,11 @@ export interface SeatInfo {
 }
 
 interface SeatLayoutProps {
-  vehicleType: "SUV" | "MiniCar" | "Hiace" | "MINI_CAR";
+  vehicleType: string;
   seats: SeatInfo[];
   onSeatSelect: (seat: SeatInfo) => void;
   selectedSeats: string[];
+  layoutData?: VehicleLayout | null;
 }
 
 /**
@@ -24,11 +26,11 @@ interface SeatLayoutProps {
  * Visualizes the vehicle seat layout (SUV, MiniCar, Hiace) based on user's 
  * requirements from provided image.
  */
-export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats }: SeatLayoutProps) {
+export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats, layoutData }: SeatLayoutProps) {
   
-  const normalizedVehicleType = vehicleType === "MINI_CAR" ? "MiniCar" : vehicleType;
+  const normalizedVehicleType = vehicleType.toUpperCase();
 
-  const renderSeat = (seatNumber: string, isDriver: boolean = false) => {
+  const renderSeat = (seatNumber: string, isDriver: boolean = false, absoluteStyles?: React.CSSProperties, seatClass?: string) => {
     // Handle both "1" and "01" seat numbers
     const seatData = seats.find(s => 
       s.number === seatNumber || 
@@ -54,8 +56,11 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats }: 
                 status === "selected" && "bg-primary border-primary text-primary-foreground scale-105 shadow-md",
                 status === "booked" && "bg-muted border-muted-foreground/20 cursor-not-allowed opacity-60",
                 status === "reserved" && "bg-yellow-100 border-yellow-400 text-yellow-700 cursor-not-allowed",
-                status === "driver" && "bg-secondary/40 border-secondary text-secondary-foreground cursor-not-allowed"
+                status === "driver" && "bg-secondary/40 border-secondary text-secondary-foreground cursor-not-allowed",
+                seatClass === "VIP" && status === "available" && "border-blue-400 bg-blue-50",
+                seatClass === "Executive" && status === "available" && "border-green-400 bg-green-50"
               )}
+              style={absoluteStyles}
             >
               <Armchair className={cn("w-5 h-5 sm:w-6 sm:h-6", status === "driver" && "opacity-50")} />
               <span className="text-[9px] sm:text-[10px] font-bold mt-0.5">{isDriver ? "DRV" : seatNumber}</span>
@@ -68,7 +73,7 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats }: 
           </TooltipTrigger>
           <TooltipContent>
             <p className="text-xs font-semibold capitalize">
-              {isDriver ? "Driver Seat" : `Seat ${seatNumber}: ${status}`}
+              {isDriver ? "Driver Seat" : `Seat ${seatNumber}: ${status} ${seatClass ? `(${seatClass})` : ""}`}
             </p>
           </TooltipContent>
         </Tooltip>
@@ -77,13 +82,59 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats }: 
   };
 
   const renderLayout = () => {
+    // If dynamic layout data is provided, use it
+    if (layoutData) {
+      const { dimensions, layout_data } = layoutData;
+      return (
+        <div 
+          className="relative bg-accent/30 rounded-3xl border-4 border-accent mx-auto overflow-hidden shadow-inner"
+          style={{ width: dimensions.width, height: dimensions.height }}
+        >
+          {/* Dashboard area */}
+          <div className="absolute top-0 left-0 w-full h-8 bg-accent/50 rounded-t-3xl flex items-center justify-center">
+            <div className="w-1/3 h-1 bg-accent/80 rounded-full" />
+          </div>
+
+          {/* Render Seats */}
+          {layout_data.seats.map((seat) => (
+            renderSeat(
+              seat.number, 
+              seat.type === "Driver", 
+              { position: 'absolute', left: seat.x, top: seat.y },
+              seat.class
+            )
+          ))}
+
+          {/* Render Objects */}
+          {layout_data.objects.map((obj) => (
+            <div
+              key={obj.id}
+              className={cn(
+                "absolute flex items-center justify-center border-2 border-dashed rounded-lg opacity-80",
+                obj.type === "Baggage" ? "bg-orange-100 border-orange-300 text-orange-600" : "bg-slate-200 border-slate-400 text-slate-600"
+              )}
+              style={{ left: obj.x, top: obj.y, width: obj.width, height: obj.height }}
+            >
+              {obj.type === "Baggage" ? <Luggage size={16} /> : <span className="text-[8px] font-bold uppercase">{obj.label || obj.type}</span>}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // Fallback to hardcoded layouts
     switch (normalizedVehicleType) {
       case "SUV":
         return (
-          <div className="flex flex-col gap-6 items-center p-4 sm:p-6 bg-accent/30 rounded-3xl border-4 border-accent w-full max-w-[280px] mx-auto relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-4 bg-accent/50 rounded-t-full" />
+          <div className="flex flex-col gap-6 items-center p-4 sm:p-6 bg-accent/30 rounded-3xl border-4 border-accent w-full max-w-[280px] mx-auto relative overflow-hidden shadow-2xl">
+            {/* Design reference from image */}
+            <div className="absolute top-0 left-0 w-full h-12 bg-accent/50 rounded-t-3xl flex items-center justify-center border-b border-accent/20">
+              <div className="w-1/3 h-1.5 bg-accent/80 rounded-full" />
+              <div className="absolute right-8 top-4 w-12 h-4 border-2 border-slate-400 rounded-full opacity-40" />
+            </div>
+            
             {/* Front Row */}
-            <div className="flex justify-between w-full px-2 sm:px-4">
+            <div className="flex justify-between w-full px-2 sm:px-4 mt-8">
               {renderSeat("1")}
               {renderSeat("D", true)}
             </div>
@@ -100,17 +151,24 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats }: 
               {renderSeat("7")}
             </div>
             {/* Baggage Row */}
-            <div className="w-full py-3 bg-accent/50 rounded-xl flex items-center justify-center border-2 border-dashed border-accent">
+            <div className="w-full py-4 bg-accent/50 rounded-xl flex items-center justify-center border-2 border-dashed border-accent">
+              <Luggage className="w-5 h-5 text-muted-foreground mr-2 opacity-50" />
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Bagasi</span>
             </div>
           </div>
         );
-      case "MiniCar":
+      case "MINI_CAR":
+      case "MINICAR":
         return (
-          <div className="flex flex-col gap-6 items-center p-4 sm:p-6 bg-accent/30 rounded-3xl border-4 border-accent w-full max-w-[240px] mx-auto relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-4 bg-accent/50 rounded-t-full" />
+          <div className="flex flex-col gap-6 items-center p-4 sm:p-6 bg-accent/30 rounded-3xl border-4 border-accent w-full max-w-[240px] mx-auto relative overflow-hidden shadow-2xl">
+            {/* Design reference from image */}
+            <div className="absolute top-0 left-0 w-full h-12 bg-accent/50 rounded-t-3xl flex items-center justify-center border-b border-accent/20">
+              <div className="w-1/3 h-1.5 bg-accent/80 rounded-full" />
+              <div className="absolute right-6 top-4 w-10 h-3.5 border-2 border-slate-400 rounded-full opacity-40" />
+            </div>
+
             {/* Front Row */}
-            <div className="flex justify-between w-full px-2 sm:px-4">
+            <div className="flex justify-between w-full px-2 sm:px-4 mt-8">
               {renderSeat("1")}
               {renderSeat("D", true)}
             </div>
@@ -121,17 +179,23 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats }: 
               {renderSeat("4")}
             </div>
             {/* Back Row (Baggage Area) */}
-            <div className="w-full py-4 bg-accent/50 rounded-xl flex items-center justify-center border-2 border-dashed border-accent">
+            <div className="w-full py-5 bg-accent/50 rounded-xl flex items-center justify-center border-2 border-dashed border-accent">
+              <Luggage className="w-5 h-5 text-muted-foreground mr-2 opacity-50" />
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Bagasi</span>
             </div>
           </div>
         );
-      case "Hiace":
+      case "HIACE":
         return (
-          <div className="flex flex-col gap-3 items-center p-4 sm:p-6 bg-accent/30 rounded-3xl border-4 border-accent w-full max-w-[340px] mx-auto relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-4 bg-accent/50 rounded-t-full" />
+          <div className="flex flex-col gap-3 items-center p-4 sm:p-6 bg-accent/30 rounded-3xl border-4 border-accent w-full max-w-[340px] mx-auto relative overflow-hidden shadow-2xl">
+            {/* Design reference from image */}
+            <div className="absolute top-0 left-0 w-full h-12 bg-accent/50 rounded-t-3xl flex items-center justify-center border-b border-accent/20">
+              <div className="w-1/3 h-1.5 bg-accent/80 rounded-full" />
+              <div className="absolute right-10 top-4 w-14 h-4.5 border-2 border-slate-400 rounded-full opacity-40" />
+            </div>
+
             {/* Row 1: Driver & 1 Seat */}
-            <div className="flex justify-between w-full px-2 sm:px-4 mb-1">
+            <div className="flex justify-between w-full px-2 sm:px-4 mb-1 mt-8">
               {renderSeat("1")}
               <div className="w-10 sm:w-12 h-10 sm:h-12" /> {/* Gap */}
               {renderSeat("D", true)}
@@ -165,7 +229,8 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats }: 
               {renderSeat("14")}
             </div>
             {/* Baggage Area */}
-            <div className="w-full py-2 bg-accent/50 rounded-b-xl flex items-center justify-center border-2 border-dashed border-accent mt-2">
+            <div className="w-full py-3 bg-accent/50 rounded-b-xl flex items-center justify-center border-2 border-dashed border-accent mt-2">
+              <Luggage className="w-4 h-4 text-muted-foreground mr-2 opacity-50" />
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Bagasi</span>
             </div>
           </div>

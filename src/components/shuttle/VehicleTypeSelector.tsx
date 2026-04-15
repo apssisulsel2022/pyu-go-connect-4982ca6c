@@ -37,7 +37,8 @@ export function VehicleTypeSelector({
             <p className="text-sm text-muted-foreground text-center py-4">Tidak ada kendaraan tersedia untuk kriteria ini</p>
           )}
           {availableVehicles.map((vt) => {
-            const details = vehicleDetails[vt] || { name: vt, capacity: "?", facilities: [], icon: <Bus className="w-10 h-10" /> };
+            const normalizedVt = vt.toUpperCase();
+            const details = vehicleDetails[normalizedVt] || vehicleDetails[vt] || { name: vt, capacity: "?", facilities: [], icon: <Bus className="w-10 h-10" /> };
             return (
               <button 
                 key={vt} 
