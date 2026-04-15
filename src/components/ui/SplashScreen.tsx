@@ -36,6 +36,10 @@ export function SplashScreen({ onFinish }: { onFinish: () => void }) {
         <img
           src="/pyu_go_icon.png"
           alt="PYU GO Logo"
+          width={192}
+          height={192}
+          {...({ fetchpriority: "high" } as any)}
+          loading="eager"
           className="w-32 h-32 md:w-48 md:h-48 object-contain mb-4 drop-shadow-xl"
         />
         <div className="text-center">

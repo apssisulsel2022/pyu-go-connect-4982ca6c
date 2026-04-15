@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
-import { Armchair, Info, User, Luggage } from "lucide-react";
+import { Armchair, Info, Luggage } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VehicleLayout } from "@/services/ShuttleLayoutService";
 
@@ -12,6 +12,55 @@ export interface SeatInfo {
   status: SeatStatus;
 }
 
+interface SeatItemProps {
+  seatNumber: string;
+  isDriver?: boolean;
+  absoluteStyles?: React.CSSProperties;
+  seatClass?: string;
+  status: SeatStatus;
+  onClick: () => void;
+}
+
+const SeatItem = memo(({ seatNumber, isDriver, absoluteStyles, seatClass, status, onClick }: SeatItemProps) => {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          disabled={status === "booked" || status === "reserved" || status === "driver"}
+          onClick={onClick}
+          className={cn(
+            "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex flex-col items-center justify-center transition-all duration-200 border-2 relative",
+            status === "available" && "bg-background border-muted hover:border-primary hover:bg-primary/5",
+            status === "selected" && "bg-primary border-primary text-primary-foreground scale-105 shadow-md",
+            status === "booked" && "bg-muted border-muted-foreground/20 cursor-not-allowed opacity-60",
+            status === "reserved" && "bg-yellow-100 border-yellow-400 text-yellow-700 cursor-not-allowed",
+            status === "driver" && "bg-secondary/40 border-secondary text-secondary-foreground cursor-not-allowed",
+            seatClass === "VIP" && status === "available" && "border-blue-400 bg-blue-50",
+            seatClass === "Executive" && status === "available" && "border-green-400 bg-green-50"
+          )}
+          style={absoluteStyles}
+        >
+          <Armchair className={cn("w-5 h-5 sm:w-6 sm:h-6", status === "driver" && "opacity-50")} />
+          <span className="text-[9px] sm:text-[10px] font-bold mt-0.5">{isDriver ? "DRV" : seatNumber}</span>
+          {status === "booked" && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-lg">
+              <div className="w-full h-0.5 bg-red-500/50 rotate-45" />
+            </div>
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p className="text-xs font-semibold capitalize">
+          {isDriver ? "Driver Seat" : `Seat ${seatNumber}: ${status} ${seatClass ? `(${seatClass})` : ""}`}
+        </p>
+      </TooltipContent>
+    </Tooltip>
+  );
+});
+
+SeatItem.displayName = "SeatItem";
+
 interface SeatLayoutProps {
   vehicleType: string;
   seats: SeatInfo[];
@@ -20,83 +69,51 @@ interface SeatLayoutProps {
   layoutData?: VehicleLayout | null;
 }
 
-/**
- * SeatLayout Component
- * 
- * Visualizes the vehicle seat layout (SUV, MiniCar, Hiace) based on user's 
- * requirements from provided image.
- */
 export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats, layoutData }: SeatLayoutProps) {
-  
   const normalizedVehicleType = vehicleType.toUpperCase();
 
+  const seatMap = useMemo(() => {
+    const map = new Map<string, SeatInfo>();
+    seats.forEach(s => {
+      map.set(s.number, s);
+      map.set(s.number.padStart(2, '0'), s);
+      map.set(s.number.replace(/^0+/, ''), s);
+    });
+    return map;
+  }, [seats]);
+
+  const selectedSet = useMemo(() => new Set(selectedSeats), [selectedSeats]);
+
   const renderSeat = (seatNumber: string, isDriver: boolean = false, absoluteStyles?: React.CSSProperties, seatClass?: string) => {
-    // Handle both "1" and "01" seat numbers
-    const seatData = seats.find(s => 
-      s.number === seatNumber || 
-      s.number === seatNumber.padStart(2, '0') ||
-      seatNumber === s.number.replace(/^0+/, '')
-    );
-    const isSelected = selectedSeats.includes(seatNumber) || 
-                       selectedSeats.includes(seatNumber.padStart(2, '0'));
-    
+    const seatData = seatMap.get(seatNumber);
+    const isSelected = selectedSet.has(seatNumber) || selectedSet.has(seatNumber.padStart(2, '0'));
     const status = isDriver ? "driver" : (isSelected ? "selected" : (seatData?.status || "available"));
 
     return (
-      <TooltipProvider key={seatNumber}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              disabled={status === "booked" || status === "reserved" || status === "driver"}
-              onClick={() => seatData && onSeatSelect(seatData)}
-              className={cn(
-                "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex flex-col items-center justify-center transition-all duration-200 border-2 relative",
-                status === "available" && "bg-background border-muted hover:border-primary hover:bg-primary/5",
-                status === "selected" && "bg-primary border-primary text-primary-foreground scale-105 shadow-md",
-                status === "booked" && "bg-muted border-muted-foreground/20 cursor-not-allowed opacity-60",
-                status === "reserved" && "bg-yellow-100 border-yellow-400 text-yellow-700 cursor-not-allowed",
-                status === "driver" && "bg-secondary/40 border-secondary text-secondary-foreground cursor-not-allowed",
-                seatClass === "VIP" && status === "available" && "border-blue-400 bg-blue-50",
-                seatClass === "Executive" && status === "available" && "border-green-400 bg-green-50"
-              )}
-              style={absoluteStyles}
-            >
-              <Armchair className={cn("w-5 h-5 sm:w-6 sm:h-6", status === "driver" && "opacity-50")} />
-              <span className="text-[9px] sm:text-[10px] font-bold mt-0.5">{isDriver ? "DRV" : seatNumber}</span>
-              {status === "booked" && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-lg">
-                  <div className="w-full h-0.5 bg-red-500/50 rotate-45" />
-                </div>
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p className="text-xs font-semibold capitalize">
-              {isDriver ? "Driver Seat" : `Seat ${seatNumber}: ${status} ${seatClass ? `(${seatClass})` : ""}`}
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <SeatItem
+        key={seatNumber}
+        seatNumber={seatNumber}
+        isDriver={isDriver}
+        absoluteStyles={absoluteStyles}
+        seatClass={seatClass}
+        status={status}
+        onClick={() => seatData && onSeatSelect(seatData)}
+      />
     );
   };
 
   const renderLayout = () => {
-    // If dynamic layout data is provided, use it
     if (layoutData) {
-      const { dimensions, layout_data } = layoutData;
       return (
         <div 
           className="relative bg-accent/30 rounded-3xl border-4 border-accent mx-auto overflow-hidden shadow-inner"
-          style={{ width: dimensions.width, height: dimensions.height }}
+          style={{ width: layoutData.dimensions.width, height: layoutData.dimensions.height }}
         >
-          {/* Dashboard area */}
           <div className="absolute top-0 left-0 w-full h-8 bg-accent/50 rounded-t-3xl flex items-center justify-center">
             <div className="w-1/3 h-1 bg-accent/80 rounded-full" />
           </div>
 
-          {/* Render Seats */}
-          {layout_data.seats.map((seat) => (
+          {layoutData.layout_data.seats.map((seat) => (
             renderSeat(
               seat.number, 
               seat.type === "Driver", 
@@ -105,8 +122,7 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats, la
             )
           ))}
 
-          {/* Render Objects */}
-          {layout_data.objects.map((obj) => (
+          {layoutData.layout_data.objects.map((obj) => (
             <div
               key={obj.id}
               className={cn(
@@ -122,35 +138,28 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats, la
       );
     }
 
-    // Fallback to hardcoded layouts
     switch (normalizedVehicleType) {
       case "SUV":
         return (
           <div className="flex flex-col gap-6 items-center p-4 sm:p-6 bg-accent/30 rounded-3xl border-4 border-accent w-full max-w-[280px] mx-auto relative overflow-hidden shadow-2xl">
-            {/* Design reference from image */}
             <div className="absolute top-0 left-0 w-full h-12 bg-accent/50 rounded-t-3xl flex items-center justify-center border-b border-accent/20">
               <div className="w-1/3 h-1.5 bg-accent/80 rounded-full" />
               <div className="absolute right-8 top-4 w-12 h-4 border-2 border-slate-400 rounded-full opacity-40" />
             </div>
-            
-            {/* Front Row */}
             <div className="flex justify-between w-full px-2 sm:px-4 mt-8">
               {renderSeat("1")}
               {renderSeat("D", true)}
             </div>
-            {/* Middle Row */}
             <div className="flex justify-between w-full px-1 sm:px-2 gap-2">
               {renderSeat("2")}
               {renderSeat("3")}
               {renderSeat("4")}
             </div>
-            {/* Back Row */}
             <div className="flex justify-between w-full px-1 sm:px-2 gap-2">
               {renderSeat("5")}
               {renderSeat("6")}
               {renderSeat("7")}
             </div>
-            {/* Baggage Row */}
             <div className="w-full py-4 bg-accent/50 rounded-xl flex items-center justify-center border-2 border-dashed border-accent">
               <Luggage className="w-5 h-5 text-muted-foreground mr-2 opacity-50" />
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Bagasi</span>
@@ -161,24 +170,19 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats, la
       case "MINICAR":
         return (
           <div className="flex flex-col gap-6 items-center p-4 sm:p-6 bg-accent/30 rounded-3xl border-4 border-accent w-full max-w-[240px] mx-auto relative overflow-hidden shadow-2xl">
-            {/* Design reference from image */}
             <div className="absolute top-0 left-0 w-full h-12 bg-accent/50 rounded-t-3xl flex items-center justify-center border-b border-accent/20">
               <div className="w-1/3 h-1.5 bg-accent/80 rounded-full" />
               <div className="absolute right-6 top-4 w-10 h-3.5 border-2 border-slate-400 rounded-full opacity-40" />
             </div>
-
-            {/* Front Row */}
             <div className="flex justify-between w-full px-2 sm:px-4 mt-8">
               {renderSeat("1")}
               {renderSeat("D", true)}
             </div>
-            {/* Middle Row */}
             <div className="flex justify-between w-full px-1 sm:px-2 gap-2">
               {renderSeat("2")}
               {renderSeat("3")}
               {renderSeat("4")}
             </div>
-            {/* Back Row (Baggage Area) */}
             <div className="w-full py-5 bg-accent/50 rounded-xl flex items-center justify-center border-2 border-dashed border-accent">
               <Luggage className="w-5 h-5 text-muted-foreground mr-2 opacity-50" />
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Bagasi</span>
@@ -188,47 +192,39 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats, la
       case "HIACE":
         return (
           <div className="flex flex-col gap-3 items-center p-4 sm:p-6 bg-accent/30 rounded-3xl border-4 border-accent w-full max-w-[340px] mx-auto relative overflow-hidden shadow-2xl">
-            {/* Design reference from image */}
             <div className="absolute top-0 left-0 w-full h-12 bg-accent/50 rounded-t-3xl flex items-center justify-center border-b border-accent/20">
               <div className="w-1/3 h-1.5 bg-accent/80 rounded-full" />
               <div className="absolute right-10 top-4 w-14 h-4.5 border-2 border-slate-400 rounded-full opacity-40" />
             </div>
-
-            {/* Row 1: Driver & 1 Seat */}
             <div className="flex justify-between w-full px-2 sm:px-4 mb-1 mt-8">
               {renderSeat("1")}
-              <div className="w-10 sm:w-12 h-10 sm:h-12" /> {/* Gap */}
+              <div className="w-10 sm:w-12 h-10 sm:h-12" />
               {renderSeat("D", true)}
             </div>
-            {/* Row 2: 3 Seats */}
             <div className="flex justify-between w-full px-1 sm:px-2 gap-1">
               {renderSeat("2")}
               {renderSeat("3")}
-              <div className="w-10 sm:w-12 h-10 sm:h-12" /> {/* Aisle */}
+              <div className="w-10 sm:w-12 h-10 sm:h-12" />
               {renderSeat("4")}
             </div>
-            {/* Row 3: 3 Seats */}
             <div className="flex justify-between w-full px-1 sm:px-2 gap-1">
               {renderSeat("5")}
               {renderSeat("6")}
-              <div className="w-10 sm:w-12 h-10 sm:h-12" /> {/* Aisle */}
+              <div className="w-10 sm:w-12 h-10 sm:h-12" />
               {renderSeat("7")}
             </div>
-            {/* Row 4: 3 Seats */}
             <div className="flex justify-between w-full px-1 sm:px-2 gap-1">
               {renderSeat("8")}
               {renderSeat("9")}
-              <div className="w-10 sm:w-12 h-10 sm:h-12" /> {/* Aisle */}
+              <div className="w-10 sm:w-12 h-10 sm:h-12" />
               {renderSeat("10")}
             </div>
-            {/* Row 5: 4 Seats (Back Row) */}
             <div className="flex justify-between w-full px-1 sm:px-2 gap-1">
               {renderSeat("11")}
               {renderSeat("12")}
               {renderSeat("13")}
               {renderSeat("14")}
             </div>
-            {/* Baggage Area */}
             <div className="w-full py-3 bg-accent/50 rounded-b-xl flex items-center justify-center border-2 border-dashed border-accent mt-2">
               <Luggage className="w-4 h-4 text-muted-foreground mr-2 opacity-50" />
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Bagasi</span>
@@ -245,34 +241,36 @@ export function SeatLayout({ vehicleType, seats, onSeatSelect, selectedSeats, la
   };
 
   return (
-    <div className="w-full py-8 bg-card rounded-2xl shadow-inner border">
-      <div className="flex items-center justify-center gap-6 mb-8 px-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-background border border-muted" />
-          <span className="text-[10px] font-medium uppercase tracking-tighter">Available</span>
+    <TooltipProvider>
+      <div className="w-full py-8 bg-card rounded-2xl shadow-inner border">
+        <div className="flex items-center justify-center gap-6 mb-8 px-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-background border border-muted" />
+            <span className="text-[10px] font-medium uppercase tracking-tighter">Available</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-primary" />
+            <span className="text-[10px] font-medium uppercase tracking-tighter">Selected</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-muted opacity-60" />
+            <span className="text-[10px] font-medium uppercase tracking-tighter">Booked</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-secondary/40 border border-secondary" />
+            <span className="text-[10px] font-medium uppercase tracking-tighter">Driver</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-primary" />
-          <span className="text-[10px] font-medium uppercase tracking-tighter">Selected</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-muted opacity-60" />
-          <span className="text-[10px] font-medium uppercase tracking-tighter">Booked</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-secondary/40 border border-secondary" />
-          <span className="text-[10px] font-medium uppercase tracking-tighter">Driver</span>
+        
+        {renderLayout()}
+        
+        <div className="mt-8 px-6 py-3 bg-primary/5 border-y border-primary/10 flex items-start gap-3">
+          <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Pilih kursi yang tersedia. Kursi yang Anda pilih akan <span className="text-primary font-bold">terkunci selama 10 menit</span> untuk proses pembayaran.
+          </p>
         </div>
       </div>
-      
-      {renderLayout()}
-      
-      <div className="mt-8 px-6 py-3 bg-primary/5 border-y border-primary/10 flex items-start gap-3">
-        <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Pilih kursi yang tersedia. Kursi yang Anda pilih akan <span className="text-primary font-bold">terkunci selama 10 menit</span> untuk proses pembayaran.
-        </p>
-      </div>
-    </div>
+    </TooltipProvider>
   );
 }

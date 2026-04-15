@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bus, Clock, Timer, Loader2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -50,15 +50,25 @@ export default function Shuttle() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<string>("booking");
+  const [isPending, startTransition] = useTransition();
 
   const handleTabChange = (val: string) => {
     if (activeTab === "booking" && val === "history" && lockedUntil) {
       releaseSeats();
     }
-    setActiveTab(val);
+    startTransition(() => {
+      setActiveTab(val);
+    });
   };
 
   const [step, setStep] = useState<Step>("routes");
+
+  // Helper to change step with transition for better INP
+  const changeStep = (newStep: Step) => {
+    startTransition(() => {
+      setStep(newStep);
+    });
+  };
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [selectedServiceTypeId, setSelectedServiceTypeId] = useState<string | null>(null);
   const [selectedVehicleType, setSelectedVehicleType] = useState<string | null>(null);
@@ -271,7 +281,7 @@ export default function Shuttle() {
         setLockedUntil(null);
         setTimerExpired(true);
         toast.error("Sesi pemesanan berakhir. Kursi telah dilepaskan.");
-        setStep("seats");
+        changeStep("seats");
         return;
       }
 
@@ -313,13 +323,13 @@ export default function Shuttle() {
     setSelectedServiceTypeId(null);
     setSelectedVehicleType(null);
     setSelectedScheduleId(null);
-    setStep("date");
+    changeStep("date");
   };
 
   const handleSelectDate = (date: Date | undefined) => {
     setSelectedDate(date);
     setSelectedScheduleId(null);
-    setStep("schedule");
+    changeStep("schedule");
   };
 
   const handleSelectSchedule = (schedule: any) => {
@@ -336,20 +346,20 @@ export default function Shuttle() {
     if (schedule.service_type_id && schedule.vehicle_type) {
       setSelectedServiceTypeId(schedule.service_type_id);
       setSelectedVehicleType(schedule.vehicle_type);
-      setStep("pickup");
+      changeStep("pickup");
     } else {
-      setStep("service");
+      changeStep("service");
     }
   };
 
   const handleSelectService = (serviceId: string) => {
     setSelectedServiceTypeId(serviceId);
-    setStep("vehicle");
+    changeStep("vehicle");
   };
 
   const handleSelectVehicle = (vehicleType: string) => {
     setSelectedVehicleType(vehicleType);
-    setStep("pickup");
+    changeStep("pickup");
   };
 
 
@@ -363,7 +373,7 @@ export default function Shuttle() {
     setSelectedRayonId(rayon.id);
     setSelectedPickupPoint(point);
     setSelectedScheduleFare(Number(point.fare) || selectedRoute?.base_fare || 0);
-    setStep("seats");
+    changeStep("seats");
   };
 
   const handleSeatClick = (seat: any) => {
@@ -397,7 +407,7 @@ export default function Shuttle() {
       
       setTimerExpired(false);
       setLockedUntil(Date.now() + 10 * 60000);
-      setStep("guest_info");
+      changeStep("guest_info");
     } catch (err: any) {
       toast.error("Gagal mengunci kursi: " + err.message);
     }
@@ -415,7 +425,7 @@ export default function Shuttle() {
       return;
     }
     
-    setStep("payment");
+    changeStep("payment");
   };
 
   const totalFare = selectedScheduleFare * selectedSeats.length;
@@ -452,7 +462,7 @@ export default function Shuttle() {
       setBookingId(data.id);
       setPaymentMethod("cash");
       setPaymentStatus("unpaid");
-      setStep("confirmation");
+      changeStep("confirmation");
       toast.success("Booking dikonfirmasi!");
     } catch (err: any) {
       toast.error("Booking gagal: " + err.message);
@@ -477,20 +487,20 @@ export default function Shuttle() {
         document.body.appendChild(script);
         script.onload = () => {
           (window as any).snap.pay(payData.token, {
-            onSuccess: () => { setPaymentStatus("paid"); setStep("confirmation"); toast.success("Pembayaran berhasil!"); },
-            onPending: () => { setPaymentStatus("pending"); setStep("confirmation"); toast.info("Menunggu pembayaran..."); },
-            onError: () => { setPaymentStatus("unpaid"); setStep("confirmation"); toast.error("Pembayaran gagal"); },
-            onClose: () => { setPaymentStatus("pending"); setStep("confirmation"); },
+            onSuccess: () => { setPaymentStatus("paid"); changeStep("confirmation"); toast.success("Pembayaran berhasil!"); },
+            onPending: () => { setPaymentStatus("pending"); changeStep("confirmation"); toast.info("Menunggu pembayaran..."); },
+            onError: () => { setPaymentStatus("unpaid"); changeStep("confirmation"); toast.error("Pembayaran gagal"); },
+            onClose: () => { setPaymentStatus("pending"); changeStep("confirmation"); },
           });
         };
       } else if (gateway === "xendit" && payData?.invoice_url) {
         window.open(payData.invoice_url, "_blank");
         setPaymentStatus("pending");
-        setStep("confirmation");
+        changeStep("confirmation");
         toast.info("Selesaikan pembayaran di halaman Xendit");
       } else {
         setPaymentStatus("pending");
-        setStep("confirmation");
+        changeStep("confirmation");
       }
     } catch (err: any) {
       toast.error("Pembayaran gagal: " + err.message);
@@ -501,7 +511,7 @@ export default function Shuttle() {
 
   const handleReset = () => {
     if (lockedUntil) releaseSeats();
-    setStep("routes");
+    changeStep("routes");
     setSelectedRouteId(null);
     setSelectedServiceTypeId(null);
     setSelectedVehicleType(null);
@@ -521,17 +531,17 @@ export default function Shuttle() {
   };
 
   const goBack = () => {
-    if (step === "date") setStep("routes");
-    else if (step === "schedule") setStep("date");
-    else if (step === "service") setStep("schedule");
-    else if (step === "vehicle") setStep("service");
-    else if (step === "pickup") setStep("vehicle");
-    else if (step === "seats") setStep(rayons && (rayons as any[]).length > 0 ? "pickup" : "vehicle");
+    if (step === "date") changeStep("routes");
+    else if (step === "schedule") changeStep("date");
+    else if (step === "service") changeStep("schedule");
+    else if (step === "vehicle") changeStep("service");
+    else if (step === "pickup") changeStep("vehicle");
+    else if (step === "seats") changeStep(rayons && (rayons as any[]).length > 0 ? "pickup" : "vehicle");
     else if (step === "guest_info") {
       releaseSeats();
-      setStep("seats");
+      changeStep("seats");
     }
-    else if (step === "payment") setStep("guest_info");
+    else if (step === "payment") changeStep("guest_info");
   };
 
   return (

@@ -1,6 +1,9 @@
 -- 1. Standardize Vehicle Types in shuttle_service_vehicle_types
 -- We will only support 'MINI_CAR', 'SUV', and 'HIACE'
 
+-- Drop existing check constraint if it exists on shuttle_schedules
+ALTER TABLE shuttle_schedules DROP CONSTRAINT IF EXISTS shuttle_schedules_vehicle_type_check;
+
 -- First, map existing legacy types to the new standardized ones to ensure backward compatibility
 UPDATE shuttle_service_vehicle_types
 SET vehicle_type = 'MINI_CAR', vehicle_name = 'Mini Car'
@@ -70,3 +73,7 @@ WHERE vehicle_type ILIKE '%hiace%' OR vehicle_type ILIKE '%bus%' OR vehicle_type
 UPDATE shuttle_vehicle_layouts
 SET vehicle_type = 'SUV'
 WHERE vehicle_type NOT IN ('MINI_CAR', 'SUV', 'HIACE');
+
+-- 5. Re-add standardized check constraint to shuttle_schedules
+ALTER TABLE shuttle_schedules ADD CONSTRAINT shuttle_schedules_vehicle_type_check 
+CHECK (vehicle_type IN ('MINI_CAR', 'SUV', 'HIACE'));
