@@ -625,7 +625,7 @@ export default function Shuttle() {
 
             {step === "guest_info" && selectedSeats.length > 0 && (
               <GuestInfoForm 
-                seatNumber={selectedSeats[0]}
+                seatNumber={Number(selectedSeats[0])}
                 onSave={(name, phone) => {
                   setGuestName(name);
                   setGuestPhone(phone);
