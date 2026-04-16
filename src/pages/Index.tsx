@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Car, Bus, Building2, MapPin, Clock, Wallet } from "lucide-react";
+import { Wallet, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,13 +7,15 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { PromoSection } from "@/components/home/PromoSection";
 import { AdsBanner } from "@/components/home/AdsBanner";
+import { ServiceTabs } from "@/components/home/ServiceTabs";
+import { TrustBanner } from "@/components/home/TrustBanner";
+import { PopularRoutes } from "@/components/home/PopularRoutes";
 import { useEffect } from "react";
 
 export default function Index() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Wallet balance fetching
   const { data: wallet, refetch: refetchWallet } = useQuery({
     queryKey: ["wallet", user?.id],
     queryFn: async () => {
@@ -23,11 +25,10 @@ export default function Index() {
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
-      
+
       if (error) throw error;
-      
+
       if (!data) {
-        // Auto-create wallet if not exists
         const { data: newWallet, error: insertError } = await supabase
           .from("wallets")
           .insert({ user_id: user.id, wallet_type: "user" })
@@ -41,10 +42,9 @@ export default function Index() {
     enabled: !!user,
   });
 
-  // Realtime subscription for wallet balance updates
   useEffect(() => {
     if (!user || !wallet?.id) return;
-    
+
     const channel = supabase
       .channel(`wallet-updates-${wallet.id}`)
       .on(
@@ -81,19 +81,22 @@ export default function Index() {
   });
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-background">
       {/* Hero */}
-      <div className="gradient-primary px-6 pt-12 pb-8 rounded-b-3xl">
-        <div className="flex items-center justify-between mb-6">
+      <div className="gradient-primary px-6 pt-10 pb-16 relative">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <img src="/pyu_go_icon.png" alt="PYU GO" className="w-10 h-10 rounded-xl" />
-            <h1 className="text-2xl font-extrabold text-primary-foreground">PYU GO</h1>
+            <img src="/pyu_go_icon.png" alt="PYU GO" className="w-10 h-10 rounded-xl shadow-md" />
+            <div>
+              <h1 className="text-xl font-extrabold text-primary-foreground leading-tight">PYU GO</h1>
+              <p className="text-primary-foreground/70 text-xs">Your super app for travel</p>
+            </div>
           </div>
-          
+
           {user ? (
-            <button 
+            <button
               onClick={() => navigate("/wallet")}
-              className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full text-primary-foreground hover:bg-white/30 transition-all"
+              className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3.5 py-2 rounded-full text-primary-foreground hover:bg-primary-foreground/30 transition-all"
             >
               <Wallet className="w-4 h-4" />
               <span className="text-sm font-bold">
@@ -101,60 +104,71 @@ export default function Index() {
               </span>
             </button>
           ) : (
-            <button 
+            <Button
               onClick={() => navigate("/auth")}
-              className="px-4 py-1.5 rounded-full bg-primary-foreground/20 backdrop-blur-sm text-primary-foreground hover:bg-primary-foreground/30 transition-all font-medium text-sm"
+              size="sm"
+              variant="secondary"
+              className="rounded-full font-semibold text-xs bg-primary-foreground/20 text-primary-foreground border-0 hover:bg-primary-foreground/30"
             >
               Sign In
-            </button>
+            </Button>
           )}
         </div>
-        <p className="text-primary-foreground/80 text-sm mb-6">
-          {user ? `Welcome back, ${user.user_metadata?.full_name ?? "rider"}!` : "Your super app for rides & shuttles"}
-        </p>
 
-        <button
-          onClick={() => navigate("/ride")}
-          className="w-full flex items-center gap-3 bg-card/90 backdrop-blur rounded-xl px-4 py-3 shadow-lg text-left"
-        >
-          <MapPin className="w-5 h-5 text-primary shrink-0" />
-          <span className="text-muted-foreground text-sm">Where are you going?</span>
-        </button>
+        <p className="text-primary-foreground/90 text-sm font-medium">
+          {user ? `Welcome back, ${user.user_metadata?.full_name ?? "rider"}! 👋` : "Rides, shuttles & hotels — all in one app"}
+        </p>
       </div>
 
-      {/* Banner Section */}
-      <AdsBanner placement="dashboard_banner" />
+      {/* Service Tabs Card */}
+      <div className="px-4">
+        <ServiceTabs />
+      </div>
 
-      {/* Services Grid */}
-      <div className="px-6 -mt-2">
-        <div className="grid grid-cols-3 gap-3 mt-6">
-          <ServiceCard icon={<Car className="w-7 h-7" />} title="Ride" description="On-demand" onClick={() => navigate("/ride")} color="text-primary" />
-          <ServiceCard icon={<Bus className="w-7 h-7" />} title="Shuttle" description="Book seats" onClick={() => navigate("/shuttle")} color="text-secondary" />
-          <ServiceCard icon={<Building2 className="w-7 h-7" />} title="Hotel" description="Book rooms" onClick={() => navigate("/hotel")} color="text-accent-foreground" />
-        </div>
+      {/* Ads Banner */}
+      <div className="mt-4">
+        <AdsBanner placement="dashboard_banner" />
+      </div>
+
+      {/* Popular Routes */}
+      <div className="px-4 mt-6">
+        <PopularRoutes />
       </div>
 
       {/* Promo Section */}
-      <PromoSection />
+      <div className="mt-6">
+        <PromoSection />
+      </div>
+
+      {/* Trust Banner */}
+      <div className="px-4 mt-6">
+        <TrustBanner />
+      </div>
 
       {/* Recent Activity */}
-      <div className="px-6 mt-8 flex-1">
-        <h2 className="text-lg font-bold mb-3">Recent Activity</h2>
+      <div className="px-4 mt-6 flex-1 pb-4">
+        <h2 className="text-lg font-bold mb-3 text-foreground">Recent Activity</h2>
         {(!user || !recentRides || recentRides.length === 0) ? (
-          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <Clock className="w-10 h-10 mb-2 opacity-40" />
+          <div className="flex flex-col items-center justify-center py-10 text-muted-foreground bg-card rounded-2xl border border-border">
+            <Clock className="w-8 h-8 mb-2 opacity-30" />
             <p className="text-sm">{user ? "No recent rides" : "Sign in to see activity"}</p>
           </div>
         ) : (
           <div className="space-y-2">
             {recentRides.map((ride) => (
-              <div key={ride.id} className="flex items-center justify-between p-3 rounded-xl bg-card border border-border">
+              <div key={ride.id} className="flex items-center justify-between p-3.5 rounded-2xl bg-card border border-border hover:shadow-sm transition-shadow">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{ride.pickup_address ?? "Pickup"} → {ride.dropoff_address ?? "Dropoff"}</p>
-                  <p className="text-xs text-muted-foreground">{format(new Date(ride.created_at), "dd MMM, HH:mm")}</p>
+                  <p className="text-sm font-semibold truncate text-foreground">
+                    {ride.pickup_address ?? "Pickup"} → {ride.dropoff_address ?? "Dropoff"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {format(new Date(ride.created_at), "dd MMM, HH:mm")}
+                  </p>
                 </div>
                 <div className="text-right shrink-0 ml-3">
-                  <p className="text-sm font-bold">Rp {(ride.fare ?? 0).toLocaleString("id-ID")}</p>
+                  <p className="text-sm font-bold text-foreground">
+                    Rp {(ride.fare ?? 0).toLocaleString("id-ID")}
+                  </p>
                   <p className="text-xs text-muted-foreground capitalize">{ride.status.replace("_", " ")}</p>
                 </div>
               </div>
@@ -164,24 +178,12 @@ export default function Index() {
       </div>
 
       {!user && (
-        <div className="px-6 pb-6">
-          <Button className="w-full gradient-primary text-primary-foreground font-semibold" size="lg" onClick={() => navigate("/auth")}>
+        <div className="px-4 pb-6 sticky bottom-16">
+          <Button className="w-full gradient-primary text-primary-foreground font-semibold shadow-lg" size="lg" onClick={() => navigate("/auth")}>
             Sign in to get started
           </Button>
         </div>
       )}
     </div>
-  );
-}
-
-function ServiceCard({ icon, title, description, onClick, color }: { icon: React.ReactNode; title: string; description: string; onClick: () => void; color: string }) {
-  return (
-    <button onClick={onClick} className="flex flex-col items-start gap-2 p-5 rounded-2xl bg-card border border-border shadow-sm hover:shadow-md transition-all active:scale-[0.98]">
-      <div className={color}>{icon}</div>
-      <div>
-        <p className="font-bold text-sm">{title}</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </div>
-    </button>
   );
 }
