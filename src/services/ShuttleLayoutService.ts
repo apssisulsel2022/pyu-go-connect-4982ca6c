@@ -41,19 +41,21 @@ export interface VehicleLayout {
   updated_at?: string;
 }
 
+const db = supabase as any;
+
 class ShuttleLayoutService {
   async getLayouts() {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("shuttle_vehicle_layouts")
       .select("*")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return data as VehicleLayout[];
+    return (data ?? []) as VehicleLayout[];
   }
 
   async getLayoutById(id: string) {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("shuttle_vehicle_layouts")
       .select("*")
       .eq("id", id)
@@ -64,7 +66,7 @@ class ShuttleLayoutService {
   }
 
   async createLayout(layout: Omit<VehicleLayout, "id" | "created_at" | "updated_at">) {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("shuttle_vehicle_layouts")
       .insert(layout)
       .select()
@@ -75,7 +77,7 @@ class ShuttleLayoutService {
   }
 
   async updateLayout(id: string, layout: Partial<VehicleLayout>) {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("shuttle_vehicle_layouts")
       .update(layout)
       .eq("id", id)
@@ -87,7 +89,7 @@ class ShuttleLayoutService {
   }
 
   async deleteLayout(id: string) {
-    const { error } = await supabase
+    const { error } = await db
       .from("shuttle_vehicle_layouts")
       .delete()
       .eq("id", id);
@@ -97,7 +99,7 @@ class ShuttleLayoutService {
   }
 
   async getActiveLayoutByVehicleType(vehicleType: string) {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("shuttle_vehicle_layouts")
       .select("*")
       .eq("vehicle_type", vehicleType)
